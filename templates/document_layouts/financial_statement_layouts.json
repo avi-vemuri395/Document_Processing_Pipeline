@@ -1,0 +1,588 @@
+{
+  "balance_sheet": {
+    "name": "Balance Sheet",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "company_name": {
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 16,
+        "color": "black",
+        "alignment": "left"
+      },
+      "statement_title": {
+        "text": "BALANCE SHEET",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "darkblue",
+        "alignment": "left"
+      },
+      "date": {
+        "text": "As of {date}",
+        "position": [72, "page_height - 95"],
+        "font": "Helvetica",
+        "font_size": 11,
+        "color": "black",
+        "alignment": "left"
+      }
+    },
+    "assets_section": {
+      "position": [72, "page_height - 140"],
+      "title": "ASSETS",
+      "current_assets": {
+        "title": "Current Assets:",
+        "line_items": [
+          {"description": "Cash", "field": "cash"},
+          {"description": "Accounts Receivable", "field": "accounts_receivable"},
+          {"description": "Inventory", "field": "inventory"},
+          {"description": "Prepaid Expenses", "field": "prepaid_expenses"},
+          {"description": "Other Current Assets", "field": "other_current_assets"}
+        ],
+        "subtotal": "Total Current Assets"
+      },
+      "fixed_assets": {
+        "title": "Fixed Assets:",
+        "line_items": [
+          {"description": "Equipment", "field": "equipment"},
+          {"description": "Furniture & Fixtures", "field": "furniture_fixtures"},
+          {"description": "Vehicles", "field": "vehicles"},
+          {"description": "Less: Accumulated Depreciation", "field": "accumulated_depreciation"}
+        ],
+        "subtotal": "Total Fixed Assets"
+      },
+      "other_assets": {
+        "title": "Other Assets:",
+        "line_items": [
+          {"description": "Intangible Assets", "field": "intangible_assets"},
+          {"description": "Investments", "field": "investments"},
+          {"description": "Other Assets", "field": "other_assets"}
+        ],
+        "subtotal": "Total Other Assets"
+      },
+      "total": "TOTAL ASSETS",
+      "column_widths": [300, 150],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "liabilities_section": {
+      "position": [72, "page_height - 400"],
+      "title": "LIABILITIES",
+      "current_liabilities": {
+        "title": "Current Liabilities:",
+        "line_items": [
+          {"description": "Accounts Payable", "field": "accounts_payable"},
+          {"description": "Accrued Expenses", "field": "accrued_expenses"},
+          {"description": "Short-term Debt", "field": "short_term_debt"},
+          {"description": "Current Portion of Long-term Debt", "field": "current_portion_long_term_debt"},
+          {"description": "Other Current Liabilities", "field": "other_current_liabilities"}
+        ],
+        "subtotal": "Total Current Liabilities"
+      },
+      "long_term_liabilities": {
+        "title": "Long-term Liabilities:",
+        "line_items": [
+          {"description": "Long-term Debt", "field": "long_term_debt"},
+          {"description": "Notes Payable", "field": "notes_payable"},
+          {"description": "Other Long-term Liabilities", "field": "other_long_term_liabilities"}
+        ],
+        "subtotal": "Total Long-term Liabilities"
+      },
+      "total": "TOTAL LIABILITIES",
+      "column_widths": [300, 150],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "equity_section": {
+      "position": [72, "page_height - 600"],
+      "title": "EQUITY",
+      "line_items": [
+        {"description": "Owner's Equity/Retained Earnings", "field": "retained_earnings"},
+        {"description": "Additional Paid-in Capital", "field": "paid_in_capital"},
+        {"description": "Current Year Earnings", "field": "current_year_earnings"}
+      ],
+      "total": "TOTAL EQUITY",
+      "column_widths": [300, 150],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "balancing_equation": {
+      "position": [72, "page_height - 700"],
+      "text": "TOTAL LIABILITIES + EQUITY",
+      "font": "Helvetica-Bold",
+      "font_size": 12,
+      "color": "darkblue"
+    }
+  },
+  "income_statement": {
+    "name": "Income Statement",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "company_name": {
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 16,
+        "color": "black"
+      },
+      "statement_title": {
+        "text": "INCOME STATEMENT",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "darkblue"
+      },
+      "period": {
+        "text": "For the Year Ended {date}",
+        "position": [72, "page_height - 95"],
+        "font": "Helvetica",
+        "font_size": 11,
+        "color": "black"
+      }
+    },
+    "revenue_section": {
+      "position": [72, "page_height - 140"],
+      "title": "REVENUE",
+      "line_items": [
+        {"description": "Gross Sales", "field": "gross_sales"},
+        {"description": "Less: Returns and Allowances", "field": "returns_allowances"},
+        {"description": "Less: Discounts", "field": "discounts"}
+      ],
+      "subtotal": "NET REVENUE",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "cogs_section": {
+      "position": [72, "page_height - 220"],
+      "title": "COST OF GOODS SOLD",
+      "line_items": [
+        {"description": "Beginning Inventory", "field": "beginning_inventory"},
+        {"description": "Purchases", "field": "purchases"},
+        {"description": "Direct Labor", "field": "direct_labor"},
+        {"description": "Manufacturing Overhead", "field": "manufacturing_overhead"},
+        {"description": "Less: Ending Inventory", "field": "ending_inventory"}
+      ],
+      "subtotal": "TOTAL COST OF GOODS SOLD",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "gross_profit": {
+      "position": [72, "page_height - 330"],
+      "title": "GROSS PROFIT",
+      "calculation": "NET REVENUE - COST OF GOODS SOLD",
+      "font": "Helvetica-Bold",
+      "font_size": 11,
+      "color": "darkblue"
+    },
+    "operating_expenses": {
+      "position": [72, "page_height - 380"],
+      "title": "OPERATING EXPENSES",
+      "line_items": [
+        {"description": "Salaries and Wages", "field": "salaries_wages"},
+        {"description": "Rent", "field": "rent_expense"},
+        {"description": "Utilities", "field": "utilities"},
+        {"description": "Insurance", "field": "insurance"},
+        {"description": "Depreciation", "field": "depreciation"},
+        {"description": "Marketing and Advertising", "field": "marketing"},
+        {"description": "Professional Services", "field": "professional_services"},
+        {"description": "Office Expenses", "field": "office_expenses"},
+        {"description": "Travel and Entertainment", "field": "travel_entertainment"},
+        {"description": "Other Operating Expenses", "field": "other_operating_expenses"}
+      ],
+      "subtotal": "TOTAL OPERATING EXPENSES",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "operating_income": {
+      "position": [72, "page_height - 600"],
+      "title": "OPERATING INCOME",
+      "calculation": "GROSS PROFIT - OPERATING EXPENSES",
+      "font": "Helvetica-Bold",
+      "font_size": 11,
+      "color": "darkblue"
+    },
+    "other_income_expenses": {
+      "position": [72, "page_height - 650"],
+      "title": "OTHER INCOME (EXPENSES)",
+      "line_items": [
+        {"description": "Interest Income", "field": "interest_income"},
+        {"description": "Interest Expense", "field": "interest_expense"},
+        {"description": "Other Income", "field": "other_income"},
+        {"description": "Other Expenses", "field": "other_expenses"}
+      ],
+      "subtotal": "TOTAL OTHER INCOME (EXPENSES)",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "net_income": {
+      "position": [72, "page_height - 750"],
+      "title": "NET INCOME BEFORE TAXES",
+      "tax_expense": "Income Tax Expense",
+      "final_total": "NET INCOME",
+      "font": "Helvetica-Bold",
+      "font_size": 12,
+      "color": "darkblue"
+    }
+  },
+  "cash_flow_statement": {
+    "name": "Statement of Cash Flows",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "company_name": {
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 16,
+        "color": "black"
+      },
+      "statement_title": {
+        "text": "STATEMENT OF CASH FLOWS",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "darkblue"
+      },
+      "period": {
+        "text": "For the Year Ended {date}",
+        "position": [72, "page_height - 95"],
+        "font": "Helvetica",
+        "font_size": 11,
+        "color": "black"
+      }
+    },
+    "operating_activities": {
+      "position": [72, "page_height - 140"],
+      "title": "CASH FLOWS FROM OPERATING ACTIVITIES",
+      "line_items": [
+        {"description": "Net Income", "field": "net_income"},
+        {"description": "Adjustments to reconcile net income to net cash:", "field": "adjustments_header"},
+        {"description": "  Depreciation", "field": "depreciation"},
+        {"description": "  Amortization", "field": "amortization"},
+        {"description": "  (Increase) Decrease in Accounts Receivable", "field": "change_accounts_receivable"},
+        {"description": "  (Increase) Decrease in Inventory", "field": "change_inventory"},
+        {"description": "  (Increase) Decrease in Prepaid Expenses", "field": "change_prepaid"},
+        {"description": "  Increase (Decrease) in Accounts Payable", "field": "change_accounts_payable"},
+        {"description": "  Increase (Decrease) in Accrued Liabilities", "field": "change_accrued_liabilities"}
+      ],
+      "subtotal": "NET CASH PROVIDED BY OPERATING ACTIVITIES",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "investing_activities": {
+      "position": [72, "page_height - 350"],
+      "title": "CASH FLOWS FROM INVESTING ACTIVITIES",
+      "line_items": [
+        {"description": "Purchase of Equipment", "field": "equipment_purchases"},
+        {"description": "Purchase of Investments", "field": "investment_purchases"},
+        {"description": "Sale of Equipment", "field": "equipment_sales"},
+        {"description": "Sale of Investments", "field": "investment_sales"}
+      ],
+      "subtotal": "NET CASH USED IN INVESTING ACTIVITIES",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "financing_activities": {
+      "position": [72, "page_height - 450"],
+      "title": "CASH FLOWS FROM FINANCING ACTIVITIES",
+      "line_items": [
+        {"description": "Proceeds from Long-term Debt", "field": "debt_proceeds"},
+        {"description": "Repayment of Long-term Debt", "field": "debt_payments"},
+        {"description": "Owner Contributions", "field": "owner_contributions"},
+        {"description": "Owner Distributions", "field": "owner_distributions"},
+        {"description": "Proceeds from Line of Credit", "field": "credit_line_proceeds"},
+        {"description": "Repayment of Line of Credit", "field": "credit_line_payments"}
+      ],
+      "subtotal": "NET CASH PROVIDED BY (USED IN) FINANCING ACTIVITIES",
+      "column_widths": [350, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "net_change": {
+      "position": [72, "page_height - 600"],
+      "title": "NET INCREASE (DECREASE) IN CASH",
+      "beginning_cash": "Cash at Beginning of Year",
+      "ending_cash": "CASH AT END OF YEAR",
+      "font": "Helvetica-Bold",
+      "font_size": 11,
+      "color": "darkblue"
+    }
+  },
+  "personal_financial_statement": {
+    "name": "SBA Form 413 - Personal Financial Statement",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "form_number": {
+        "text": "SBA FORM 413",
+        "position": ["center", "page_height - 40"],
+        "font": "Helvetica-Bold",
+        "font_size": 16,
+        "color": "black",
+        "alignment": "center"
+      },
+      "form_title": {
+        "text": "PERSONAL FINANCIAL STATEMENT",
+        "position": ["center", "page_height - 60"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "darkblue",
+        "alignment": "center"
+      },
+      "agency": {
+        "text": "U.S. Small Business Administration",
+        "position": ["center", "page_height - 80"],
+        "font": "Helvetica",
+        "font_size": 10,
+        "color": "black",
+        "alignment": "center"
+      }
+    },
+    "personal_info": {
+      "position": [72, "page_height - 120"],
+      "title": "PERSONAL INFORMATION",
+      "fields": [
+        {"label": "Name:", "field": "name", "width": 200},
+        {"label": "SSN:", "field": "ssn", "width": 150},
+        {"label": "Address:", "field": "address", "width": 300},
+        {"label": "Phone:", "field": "phone", "width": 150},
+        {"label": "Email:", "field": "email", "width": 200}
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "assets_section": {
+      "position": [72, "page_height - 200"],
+      "title": "ASSETS",
+      "categories": {
+        "liquid_assets": {
+          "title": "Cash and Cash Equivalents:",
+          "fields": [
+            "cash_on_hand",
+            "checking_accounts",
+            "savings_accounts",
+            "money_market_accounts",
+            "certificates_of_deposit"
+          ]
+        },
+        "securities": {
+          "title": "Securities:",
+          "fields": [
+            "stocks_bonds",
+            "mutual_funds",
+            "retirement_accounts_401k",
+            "retirement_accounts_ira",
+            "other_securities"
+          ]
+        },
+        "real_estate": {
+          "title": "Real Estate:",
+          "fields": [
+            "primary_residence",
+            "investment_properties",
+            "other_real_estate"
+          ]
+        },
+        "personal_property": {
+          "title": "Personal Property:",
+          "fields": [
+            "vehicles",
+            "jewelry_collectibles",
+            "furniture_fixtures",
+            "other_personal_property"
+          ]
+        },
+        "other_assets": {
+          "title": "Other Assets:",
+          "fields": [
+            "business_ownership",
+            "notes_receivable",
+            "life_insurance_cash_value",
+            "other_assets"
+          ]
+        }
+      },
+      "total": "TOTAL ASSETS",
+      "column_widths": [300, 150],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "liabilities_section": {
+      "position": [72, "page_height - 500"],
+      "title": "LIABILITIES",
+      "categories": {
+        "current_liabilities": {
+          "title": "Current Liabilities:",
+          "fields": [
+            "accounts_payable",
+            "credit_cards",
+            "short_term_notes",
+            "accrued_expenses",
+            "taxes_payable"
+          ]
+        },
+        "long_term_liabilities": {
+          "title": "Long-term Liabilities:",
+          "fields": [
+            "real_estate_mortgages",
+            "vehicle_loans",
+            "student_loans",
+            "business_loans",
+            "other_long_term_debt"
+          ]
+        }
+      },
+      "total": "TOTAL LIABILITIES",
+      "column_widths": [300, 150],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "net_worth": {
+      "position": [72, "page_height - 650"],
+      "calculation": "TOTAL ASSETS - TOTAL LIABILITIES = NET WORTH",
+      "font": "Helvetica-Bold",
+      "font_size": 12,
+      "color": "darkblue"
+    },
+    "income_expenses": {
+      "position": [72, "page_height - 700"],
+      "title": "ANNUAL INCOME AND EXPENSES",
+      "income_fields": [
+        "salary_wages",
+        "business_income",
+        "rental_income",
+        "investment_income",
+        "other_income"
+      ],
+      "expense_fields": [
+        "housing_expenses",
+        "transportation",
+        "insurance",
+        "taxes",
+        "other_expenses"
+      ],
+      "column_widths": [200, 100, 200, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "footer": {
+      "disclaimer": "SBA Form 413 (Rev. 01-2021)",
+      "position": "center_bottom",
+      "font": "Helvetica",
+      "font_size": 8,
+      "color": "grey"
+    }
+  },
+  "debt_schedule": {
+    "name": "Business Debt Schedule",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "company_name": {
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 16,
+        "color": "black"
+      },
+      "statement_title": {
+        "text": "BUSINESS DEBT SCHEDULE",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "darkblue"
+      },
+      "date": {
+        "text": "As of {date}",
+        "position": [72, "page_height - 95"],
+        "font": "Helvetica",
+        "font_size": 11,
+        "color": "black"
+      }
+    },
+    "debt_table": {
+      "position": [72, "page_height - 140"],
+      "columns": [
+        {"title": "Creditor Name", "width": 120, "field": "creditor_name"},
+        {"title": "Original Amount", "width": 80, "field": "original_amount"},
+        {"title": "Current Balance", "width": 80, "field": "current_balance"},
+        {"title": "Monthly Payment", "width": 80, "field": "monthly_payment"},
+        {"title": "Interest Rate", "width": 60, "field": "interest_rate"},
+        {"title": "Maturity Date", "width": 70, "field": "maturity_date"}
+      ],
+      "totals_row": {
+        "original_total": "total_original_amount",
+        "current_total": "total_current_balance",
+        "monthly_total": "total_monthly_payment"
+      },
+      "font": "Helvetica",
+      "font_size": 9
+    },
+    "debt_summary": {
+      "position": [72, "page_height - 400"],
+      "title": "DEBT SUMMARY",
+      "metrics": [
+        {"label": "Total Outstanding Debt:", "field": "total_outstanding"},
+        {"label": "Total Monthly Payments:", "field": "total_monthly"},
+        {"label": "Average Interest Rate:", "field": "average_rate"},
+        {"label": "Debt-to-Income Ratio:", "field": "debt_to_income_ratio"}
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "collateral_info": {
+      "position": [72, "page_height - 500"],
+      "title": "COLLATERAL INFORMATION",
+      "fields": [
+        "real_estate_collateral",
+        "equipment_collateral",
+        "inventory_collateral",
+        "other_collateral"
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "payment_history": {
+      "position": [72, "page_height - 600"],
+      "title": "PAYMENT HISTORY SUMMARY",
+      "fields": [
+        "on_time_payments",
+        "late_payments",
+        "missed_payments",
+        "credit_rating"
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    }
+  }
+}

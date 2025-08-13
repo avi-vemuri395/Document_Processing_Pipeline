@@ -1,0 +1,309 @@
+{
+  "form_1120": {
+    "name": "Form 1120 - U.S. Corporation Income Tax Return",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "height": 120,
+      "form_number": {
+        "text": "Form 1120",
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 18,
+        "color": "black"
+      },
+      "form_title": {
+        "text": "U.S. Corporation Income Tax Return",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "black"
+      },
+      "tax_year": {
+        "text": "Tax Year {year}",
+        "position": [400, "page_height - 50"],
+        "font": "Helvetica",
+        "font_size": 12,
+        "color": "black"
+      },
+      "department": {
+        "text": "Department of the Treasury - Internal Revenue Service",
+        "position": [72, "page_height - 100"],
+        "font": "Helvetica",
+        "font_size": 10,
+        "color": "black"
+      }
+    },
+    "business_info": {
+      "position": [72, "page_height - 150"],
+      "title": "BUSINESS IDENTIFICATION",
+      "fields": [
+        "business_name",
+        "ein",
+        "business_address",
+        "date_incorporated",
+        "business_code",
+        "total_assets"
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "income_section": {
+      "position": [72, "page_height - 280"],
+      "title": "INCOME",
+      "line_items": [
+        {"line": "1a", "description": "Gross receipts or sales", "field": "gross_receipts"},
+        {"line": "1c", "description": "Total receipts (add lines 1a and 1b)", "field": "total_receipts"},
+        {"line": "2", "description": "Cost of goods sold (Schedule A, line 8)", "field": "cost_of_goods_sold"},
+        {"line": "3", "description": "Gross profit (subtract line 2 from line 1c)", "field": "gross_profit"},
+        {"line": "4", "description": "Dividends", "field": "dividends"},
+        {"line": "5", "description": "Interest", "field": "interest"},
+        {"line": "6", "description": "Gross rents", "field": "gross_rents"},
+        {"line": "7", "description": "Gross royalties", "field": "gross_royalties"},
+        {"line": "8", "description": "Capital gain net income", "field": "capital_gain"},
+        {"line": "9", "description": "Net gain or (loss) from Form 4797", "field": "form_4797_gain"},
+        {"line": "10", "description": "Other income", "field": "other_income"},
+        {"line": "11", "description": "Total income (add lines 3 through 10)", "field": "total_income"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "deductions_section": {
+      "position": [72, "page_height - 500"],
+      "title": "DEDUCTIONS",
+      "line_items": [
+        {"line": "12", "description": "Compensation of officers", "field": "officer_compensation"},
+        {"line": "13", "description": "Salaries and wages", "field": "salaries_wages"},
+        {"line": "14", "description": "Repairs and maintenance", "field": "repairs_maintenance"},
+        {"line": "15", "description": "Bad debts", "field": "bad_debts"},
+        {"line": "16", "description": "Rents", "field": "rent_expense"},
+        {"line": "17", "description": "Taxes and licenses", "field": "taxes_licenses"},
+        {"line": "18", "description": "Interest", "field": "interest_expense"},
+        {"line": "19", "description": "Charitable contributions", "field": "charitable_contributions"},
+        {"line": "20", "description": "Depreciation", "field": "depreciation"},
+        {"line": "26", "description": "Other deductions", "field": "other_deductions"},
+        {"line": "27", "description": "Total deductions (add lines 12 through 26)", "field": "total_deductions"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "tax_computation": {
+      "position": [72, "page_height - 750"],
+      "title": "TAX COMPUTATION AND PAYMENT",
+      "line_items": [
+        {"line": "30", "description": "Taxable income (subtract line 27 from line 11)", "field": "taxable_income"},
+        {"line": "31", "description": "Total tax", "field": "total_tax"},
+        {"line": "32", "description": "Payments and credits", "field": "payments_credits"},
+        {"line": "35", "description": "Amount owed", "field": "amount_owed"},
+        {"line": "36", "description": "Overpayment", "field": "overpayment"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica-Bold",
+      "font_size": 10
+    },
+    "signature_section": {
+      "position": [72, 100],
+      "fields": [
+        "preparer_name",
+        "preparer_signature_date",
+        "officer_signature_date"
+      ],
+      "font": "Helvetica",
+      "font_size": 9
+    },
+    "footer": {
+      "disclaimer": "For Paperwork Reduction Act Notice, see separate instructions.",
+      "position": "center_bottom",
+      "font": "Helvetica",
+      "font_size": 8,
+      "color": "grey"
+    }
+  },
+  "form_1120s": {
+    "name": "Form 1120S - U.S. Income Tax Return for an S Corporation",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "height": 120,
+      "form_number": {
+        "text": "Form 1120S",
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 18,
+        "color": "black"
+      },
+      "form_title": {
+        "text": "U.S. Income Tax Return for an S Corporation",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "black"
+      },
+      "tax_year": {
+        "text": "Tax Year {year}",
+        "position": [400, "page_height - 50"],
+        "font": "Helvetica",
+        "font_size": 12,
+        "color": "black"
+      }
+    },
+    "business_info": {
+      "position": [72, "page_height - 150"],
+      "title": "BUSINESS IDENTIFICATION",
+      "fields": [
+        "business_name",
+        "ein",
+        "business_address",
+        "date_incorporated",
+        "business_code",
+        "number_of_shareholders"
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "income_section": {
+      "position": [72, "page_height - 280"],
+      "title": "INCOME",
+      "line_items": [
+        {"line": "1a", "description": "Gross receipts or sales", "field": "gross_receipts"},
+        {"line": "1c", "description": "Net of returns and allowances", "field": "net_receipts"},
+        {"line": "2", "description": "Cost of goods sold", "field": "cost_of_goods_sold"},
+        {"line": "3", "description": "Gross profit", "field": "gross_profit"},
+        {"line": "4", "description": "Net gain (loss) from Form 4797", "field": "form_4797_gain"},
+        {"line": "5", "description": "Other income (loss)", "field": "other_income"},
+        {"line": "6", "description": "Total income (loss)", "field": "total_income"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "footer": {
+      "disclaimer": "For Paperwork Reduction Act Notice, see separate instructions.",
+      "position": "center_bottom",
+      "font": "Helvetica",
+      "font_size": 8,
+      "color": "grey"
+    }
+  },
+  "schedule_c": {
+    "name": "Schedule C - Profit or Loss From Business",
+    "dimensions": {
+      "page_size": "letter",
+      "margin_top": 72,
+      "margin_bottom": 72,
+      "margin_left": 72,
+      "margin_right": 72
+    },
+    "header": {
+      "height": 120,
+      "form_number": {
+        "text": "Schedule C",
+        "position": [72, "page_height - 50"],
+        "font": "Helvetica-Bold",
+        "font_size": 18,
+        "color": "black"
+      },
+      "form_title": {
+        "text": "Profit or Loss From Business (Sole Proprietorship)",
+        "position": [72, "page_height - 75"],
+        "font": "Helvetica-Bold",
+        "font_size": 14,
+        "color": "black"
+      },
+      "attachment_note": {
+        "text": "Attach to Form 1040, 1040-SR, 1040-NR, or 1041; partnerships must generally file Form 1065.",
+        "position": [72, "page_height - 95"],
+        "font": "Helvetica",
+        "font_size": 9,
+        "color": "black"
+      }
+    },
+    "business_info": {
+      "position": [72, "page_height - 150"],
+      "title": "BUSINESS INFORMATION",
+      "fields": [
+        "business_name",
+        "principal_business_activity",
+        "business_code",
+        "business_address",
+        "accounting_method"
+      ],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "income_section": {
+      "position": [72, "page_height - 250"],
+      "title": "PART I - INCOME",
+      "line_items": [
+        {"line": "1", "description": "Gross receipts or sales", "field": "gross_receipts"},
+        {"line": "2", "description": "Returns and allowances", "field": "returns_allowances"},
+        {"line": "3", "description": "Subtract line 2 from line 1", "field": "net_receipts"},
+        {"line": "4", "description": "Cost of goods sold", "field": "cost_of_goods_sold"},
+        {"line": "5", "description": "Gross profit (subtract line 4 from line 3)", "field": "gross_profit"},
+        {"line": "6", "description": "Other income", "field": "other_income"},
+        {"line": "7", "description": "Gross income (add lines 5 and 6)", "field": "gross_income"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "expenses_section": {
+      "position": [72, "page_height - 400"],
+      "title": "PART II - EXPENSES",
+      "line_items": [
+        {"line": "8", "description": "Advertising", "field": "advertising"},
+        {"line": "9", "description": "Car and truck expenses", "field": "car_truck_expenses"},
+        {"line": "10", "description": "Commissions and fees", "field": "commissions_fees"},
+        {"line": "11", "description": "Contract labor", "field": "contract_labor"},
+        {"line": "12", "description": "Depletion", "field": "depletion"},
+        {"line": "13", "description": "Depreciation", "field": "depreciation"},
+        {"line": "14", "description": "Employee benefit programs", "field": "employee_benefits"},
+        {"line": "15", "description": "Insurance", "field": "insurance"},
+        {"line": "16", "description": "Interest", "field": "interest"},
+        {"line": "17", "description": "Legal and professional services", "field": "legal_professional"},
+        {"line": "18", "description": "Office expense", "field": "office_expense"},
+        {"line": "19", "description": "Pension and profit-sharing plans", "field": "pension_plans"},
+        {"line": "20", "description": "Rent or lease", "field": "rent_lease"},
+        {"line": "21", "description": "Repairs and maintenance", "field": "repairs_maintenance"},
+        {"line": "22", "description": "Supplies", "field": "supplies"},
+        {"line": "23", "description": "Taxes and licenses", "field": "taxes_licenses"},
+        {"line": "24", "description": "Travel and meals", "field": "travel_meals"},
+        {"line": "25", "description": "Utilities", "field": "utilities"},
+        {"line": "26", "description": "Wages", "field": "wages"},
+        {"line": "27", "description": "Other expenses", "field": "other_expenses"},
+        {"line": "28", "description": "Total expenses (add lines 8 through 27)", "field": "total_expenses"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica",
+      "font_size": 10
+    },
+    "net_profit": {
+      "position": [72, "page_height - 750"],
+      "line_items": [
+        {"line": "31", "description": "Net profit or (loss) (subtract line 28 from line 7)", "field": "net_profit"}
+      ],
+      "column_widths": [40, 300, 100],
+      "font": "Helvetica-Bold",
+      "font_size": 11
+    },
+    "footer": {
+      "disclaimer": "For Paperwork Reduction Act Notice, see your tax return instructions.",
+      "position": "center_bottom",
+      "font": "Helvetica",
+      "font_size": 8,
+      "color": "grey"
+    }
+  }
+}
