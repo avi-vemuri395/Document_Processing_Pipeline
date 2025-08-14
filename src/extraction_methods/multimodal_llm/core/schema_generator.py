@@ -46,6 +46,14 @@ class PrismaSchemaGenerator:
                     "phone": {"type": PrismaFieldType.STRING, "required": False, "description": "Phone number"},
                     "businessPhone": {"type": PrismaFieldType.STRING, "required": False, "description": "Business phone number"},
                     
+                    # Address Information
+                    "streetAddress": {"type": PrismaFieldType.STRING, "required": False, "description": "Street address"},
+                    "city": {"type": PrismaFieldType.STRING, "required": False, "description": "City"},
+                    "state": {"type": PrismaFieldType.STRING, "required": False, "description": "State"},
+                    "zipCode": {"type": PrismaFieldType.STRING, "required": False, "description": "ZIP code"},
+                    "ssn": {"type": PrismaFieldType.STRING, "required": False, "description": "Social Security Number"},
+                    "dateOfBirth": {"type": PrismaFieldType.STRING, "required": False, "description": "Date of birth"},
+                    
                     # Assets
                     "cashOnHand": {"type": PrismaFieldType.INT, "required": False, "description": "Cash on hand in dollars (as integer)"},
                     "savingsAccount": {"type": PrismaFieldType.INT, "required": False, "description": "Savings account balance in dollars (as integer)"},

@@ -3,6 +3,9 @@ python-dotenv==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
+# LLM providers (REQUIRED for extraction)
+anthropic==0.63.0
+
 # OCR and document processing
 pytesseract==0.3.10
 opencv-python==4.8.1.78

@@ -1,31 +1,22 @@
 """
 Multi-modal LLM extraction method using vision-language models.
+Simplified benchmark implementation for unstructured extraction and form filling.
 """
 
-from .core.base_llm_extractor import (
-    BaseLLMExtractor,
-    ExtractionResult,
-    FieldExtraction,
-    ExtractionConfidence
-)
 from .core.schema_generator import PrismaSchemaGenerator
 from .core.confidence_aggregator import ConfidenceAggregator
-
-# Import providers if available
-try:
-    from .providers.claude_extractor import ClaudeExtractor
-    CLAUDE_AVAILABLE = True
-except ImportError:
-    CLAUDE_AVAILABLE = False
-    ClaudeExtractor = None
+from .providers import (
+    BenchmarkExtractor,
+    LLMFormFiller,
+    LLMFormFillerWithPDF,
+    PDFFormGenerator
+)
 
 __all__ = [
-    "BaseLLMExtractor",
-    "ExtractionResult",
-    "FieldExtraction",
-    "ExtractionConfidence",
     "PrismaSchemaGenerator",
     "ConfidenceAggregator",
-    "ClaudeExtractor",
-    "CLAUDE_AVAILABLE"
+    "BenchmarkExtractor",
+    "LLMFormFiller",
+    "LLMFormFillerWithPDF",
+    "PDFFormGenerator"
 ]
