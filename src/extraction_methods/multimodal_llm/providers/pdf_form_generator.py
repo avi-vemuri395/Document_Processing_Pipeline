@@ -298,12 +298,43 @@ class AcroFormFiller:
             # Create form object
             pdf = PdfWrapper(str(template_path))
             
-            # Fill the form
-            pdf.fill(data)
+            # Filter data for PyPDFForm:
+            # - Only include checkboxes that should be checked (true values)
+            # - Keep all text fields
+            filtered_data = {}
+            for key, value in data.items():
+                # Check if this is a boolean-like value (checkbox)
+                if isinstance(value, bool):
+                    # Only include if True (checkbox should be checked)
+                    if value:
+                        filtered_data[key] = value
+                    # Skip False values - PyPDFForm shouldn't touch unchecked boxes
+                elif isinstance(value, str) and value.lower() in ['true', 'false']:
+                    # String boolean value (from form_filler.py)
+                    if value.lower() == 'true':
+                        filtered_data[key] = True  # Convert to actual boolean
+                    # Skip 'false' values - don't include them
+                else:
+                    # Include all other values (text fields)
+                    filtered_data[key] = value
             
-            # Save
+            # Debug: Show what was filtered
+            removed_count = len(data) - len(filtered_data)
+            if removed_count > 0:
+                removed_fields = [k for k in data if k not in filtered_data]
+                print(f"  • Filtered {len(data)} fields to {len(filtered_data)} for PyPDFForm")
+                print(f"    Removed {removed_count} false checkbox values:")
+                for field in removed_fields[:5]:  # Show first 5
+                    print(f"      - {field}: {data[field]}")
+            else:
+                print(f"  • Using all {len(data)} fields (no false checkboxes to remove)")
+            
+            # Fill the form with filtered data
+            pdf.fill(filtered_data)
+            
+            # Save - use read() method for PyPDFForm 3.x
             with open(output_path, 'wb') as f:
-                f.write(pdf.stream)
+                f.write(pdf.read())
             
             print(f"✅ PDF saved to: {output_path}")
             return True

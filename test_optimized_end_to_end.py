@@ -11,6 +11,8 @@ This test:
 
 import asyncio
 import json
+import time
+import os
 from pathlib import Path
 from src.extraction_methods.multimodal_llm.providers import (
     LLMFormFiller,
@@ -23,9 +25,20 @@ async def test_optimized_extraction():
     Optimized test that processes key documents for maximum coverage.
     """
     
-    print("=" * 70)
+    test_start = time.time()
+    
+    print("\n" + "=" * 70)
     print("🚀 OPTIMIZED END-TO-END TEST: MAXIMUM FIELD COVERAGE")
     print("=" * 70)
+    
+    # Display configuration
+    print("\n⚠️  TEST CONFIGURATION WARNING:")
+    print(f"  • Mode: {'Files API' if os.getenv('USE_FILES_API', 'false').lower() == 'true' else 'Image-based (Base64)'}")
+    print(f"  • Expected documents: 5 (PFS, Tax Returns, Business Info)")
+    print(f"  • Estimated pages: ~29-33")
+    print(f"  • Estimated tokens: ~15,000-25,000 (image mode)")
+    print(f"  • Rate limit risk: MEDIUM-HIGH")
+    print(f"  🚨 May hit 30k token/minute limit!")
     print()
     
     try:
@@ -59,33 +72,83 @@ async def test_optimized_extraction():
         ("Waxxpot_Org_Chart_2025_.pdf", "Organization Chart", 1),
     ]
     
-    # Filter to existing files
+    # Filter to existing files and calculate sizes
     selected_docs = []
     total_pages = 0
+    total_size_mb = 0
     
-    for doc_name, description, pages in priority_documents:
+    print(f"\n📄 DOCUMENT SELECTION:")
+    for doc_name, description, est_pages in priority_documents:
         doc_path = documents_folder / doc_name
         if doc_path.exists():
+            size_mb = doc_path.stat().st_size / 1024 / 1024
+            total_size_mb += size_mb
             selected_docs.append(doc_path)
-            total_pages += pages
-            print(f"  ✅ {description}: {doc_name} ({pages} pages)")
+            total_pages += est_pages
+            print(f"  ✅ {description}:")
+            print(f"     File: {doc_name}")
+            print(f"     Size: {size_mb:.2f} MB")
+            print(f"     Est. pages: {est_pages}")
         else:
             print(f"  ❌ Missing: {doc_name}")
     
-    print(f"\n📊 Total: {len(selected_docs)} documents, ~{total_pages} pages")
+    print(f"\n📊 TOTALS:")
+    print(f"  • Documents: {len(selected_docs)}")
+    print(f"  • Total size: {total_size_mb:.2f} MB")
+    print(f"  • Estimated pages: ~{total_pages}")
+    print(f"  • Estimated images: ~{total_pages * 1.2:.0f} (after preprocessing)")
+    
+    # Risk assessment
+    estimated_tokens = total_pages * 1500  # Rough estimate
+    print(f"\n🚫 RATE LIMIT RISK ASSESSMENT:")
+    print(f"  • Estimated tokens: ~{estimated_tokens:,}")
+    if estimated_tokens > 25000:
+        print(f"  🔴 HIGH RISK: May exceed 30k token/minute limit")
+        print(f"     Consider processing fewer documents")
+    elif estimated_tokens > 20000:
+        print(f"  🟡 MEDIUM RISK: Close to rate limits")
+    else:
+        print(f"  🟢 LOW RISK: Should be within limits")
     
     if not selected_docs:
         print("❌ No documents found!")
         return
     
     # Step 2: Extract data from all selected documents
-    print("\n🤖 STEP 2: EXTRACTING DATA")
+    print("\n🤖 STEP 2: EXTRACTING DATA (HIGH RISK)")
     print("-" * 50)
     
-    print("Processing documents...")
-    extracted_data = await filler.extractor.extract_all(selected_docs)
+    print("\n📡 Starting API call with multiple documents...")
+    print("  ⚠️  This may take 30-60 seconds")
     
-    print("✅ Extraction complete!")
+    extraction_start = time.time()
+    try:
+        extracted_data = await filler.extractor.extract_all(selected_docs)
+        extraction_time = time.time() - extraction_start
+        
+        print(f"\n✅ Extraction completed in {extraction_time:.2f} seconds")
+        
+        # Check for rate limit issues
+        if extracted_data.get('_extraction_failed'):
+            print(f"\n🔴 EXTRACTION FAILED:")
+            print(f"  Error: {extracted_data.get('error', 'Unknown')}")
+            
+            error_msg = str(extracted_data.get('error', ''))
+            if '413' in error_msg or 'rate' in error_msg.lower() or '429' in error_msg:
+                print(f"\n  🚫 RATE LIMIT HIT!")
+                print(f"     This confirms 5 documents exceed limits")
+                print(f"     Solution: Use test_focused_end_to_end.py (2 docs)")
+                print(f"     Or: Wait 1 minute and retry")
+            elif '2000' in error_msg:
+                print(f"\n  🗖️ IMAGE SIZE ERROR!")
+                print(f"     Images exceed 2000px dimension limit")
+                print(f"     Solution: Reduce DPI in preprocessor")
+            return
+            
+    except Exception as e:
+        print(f"\n🔴 EXTRACTION EXCEPTION: {e}")
+        print(f"  This is likely a rate limit or size error")
+        return
     
     # Save for analysis
     extraction_file = Path("outputs/filled_forms/optimized_extraction.json")
@@ -93,6 +156,20 @@ async def test_optimized_extraction():
     with open(extraction_file, 'w') as f:
         json.dump(extracted_data, f, indent=2)
     print(f"💾 Saved extraction to: {extraction_file}")
+    
+    # Analyze extraction metrics
+    if '_metadata' in extracted_data:
+        meta = extracted_data['_metadata']
+        print(f"\n📊 EXTRACTION METRICS:")
+        print(f"  • Processing time: {meta.get('processing_time', 'N/A'):.2f}s")
+        print(f"  • Documents processed: {meta.get('documents_processed', 'N/A')}")
+        print(f"  • Total images: {meta.get('total_images', 'N/A')}")
+        print(f"  • Files API used: {meta.get('files_api_used', False)}")
+        
+        # Token usage warning
+        if meta.get('total_images', 0) > 20:
+            print(f"\n  ⚠️  LARGE IMAGE COUNT: {meta.get('total_images')} images")
+            print(f"     High risk of rate limiting")
     
     # Analyze what we extracted
     def count_data_points(obj, prefix=""):
@@ -174,6 +251,7 @@ async def test_optimized_extraction():
     
     # Save filled form
     filled_form_file = Path("outputs/filled_forms/optimized_filled_form.json")
+    filled_form_file.parent.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
     with open(filled_form_file, 'w') as f:
         json.dump(filled_form, f, indent=2)
     print(f"\n💾 Saved filled form to: {filled_form_file}")
@@ -190,10 +268,14 @@ async def test_optimized_extraction():
         if mapping_path.exists():
             generator.filler.load_mapping(mapping_path)
         
+        # Ensure output directory exists
+        pdf_output_dir = Path("outputs/filled_pdfs")
+        pdf_output_dir.mkdir(parents=True, exist_ok=True)
+        
         pdf_path = generator.generate_filled_pdf(
             "Live Oak",
             filled_fields,
-            "outputs/filled_pdfs"
+            str(pdf_output_dir)
         )
         
         if pdf_path:

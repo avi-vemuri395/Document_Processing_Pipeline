@@ -295,9 +295,15 @@ class UniversalPreprocessor:
         
         # 3. Ensure it's not too large (token efficiency)
         if max(image.size) > self.max_resolution:
+            original_dims = (image.width, image.height)
             scale = self.max_resolution / max(image.size)
             new_size = (int(image.width * scale), int(image.height * scale))
+            
+            print(f"    🔄 Resizing: {original_dims[0]}x{original_dims[1]} → {new_size[0]}x{new_size[1]} (max {self.max_resolution}px)")
+            
             image = image.resize(new_size, Image.LANCZOS)
+        elif max(image.size) > 1800:
+            print(f"    ⚠️  Large image: {image.width}x{image.height} (approaching 2000px limit)")
         
         # 4. Slight sharpening if image looks blurry
         enhancer = ImageEnhance.Sharpness(image)
