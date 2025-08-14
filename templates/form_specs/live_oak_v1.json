@@ -1,0 +1,391 @@
+{
+  "form_id": "live_oak_application",
+  "version": "2025.01",
+  "form_title": "Live Oak Express Application Forms",
+  "fingerprint": {
+    "pages": 12,
+    "title_text": "Live Oak Express - Application Forms"
+  },
+  "sections": [
+    "Personal Information",
+    "Business Information",
+    "Financial Information",
+    "Additional Information"
+  ],
+  "fields": [
+    {
+      "id": "applicant_name",
+      "field_name": "Name",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Name"],
+        "anchors": [
+          {"text": "Name:", "strategy": "right", "offset": 150},
+          {"text": "Name", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "case": "preserve",
+        "trim": true
+      },
+      "validate": {
+        "min_length": 2,
+        "max_length": 100
+      }
+    },
+    {
+      "id": "ssn",
+      "field_name": "Social Security Number",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Social Security Number", "SSN"],
+        "anchors": [
+          {"text": "Social Security Number", "strategy": "right", "offset": 200},
+          {"text": "SSN", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "pattern": "XXX-XX-\\d{4}",
+        "mask": true
+      },
+      "validate": {
+        "pattern": "^(XXX-XX-\\d{4}|\\d{3}-\\d{2}-\\d{4})$"
+      }
+    },
+    {
+      "id": "date_of_birth",
+      "field_name": "Date of Birth",
+      "type": "date",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Date of Birth", "DOB", "Birthday"],
+        "anchors": []
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      },
+      "validate": {
+        "date_format": ["MM/DD/YYYY", "MM-DD-YYYY", "YYYY-MM-DD"]
+      }
+    },
+    {
+      "id": "mobile_phone",
+      "field_name": "Mobile Telephone Number",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Mobile Telephone Number", "Mobile Phone", "Cell Phone"],
+        "anchors": []
+      },
+      "normalize": {
+        "phone_format": "US"
+      }
+    },
+    {
+      "id": "email",
+      "field_name": "Email address",
+      "type": "email",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Email address", "Email", "E-mail"],
+        "anchors": [
+          {"text": "Email address", "strategy": "right", "offset": 150},
+          {"text": "Email", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "case": "lower",
+        "trim": true
+      },
+      "validate": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      }
+    },
+    {
+      "id": "residence_address",
+      "field_name": "Residence Address",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Residence Address", "Home Address"],
+        "anchors": [
+          {"text": "Residence Address", "strategy": "right", "offset": 200},
+          {"text": "Home Address", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "city_state_zip",
+      "field_name": "City State Zip",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["City State Zip", "City, State, Zip"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "marital_status",
+      "field_name": "Marital Status",
+      "type": "checkbox_group",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [],
+        "anchors": [],
+        "checkboxes": {
+          "Married": ["Married"],
+          "Unmarried": ["Unmarried", "Single"],
+          "Separated": ["Separated"]
+        }
+      }
+    },
+    {
+      "id": "business_name",
+      "field_name": "Business Applicant Name",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Business Applicant Name", "Business Name", "Company Name"],
+        "anchors": [
+          {"text": "Business Applicant Name", "strategy": "right", "offset": 200},
+          {"text": "Business Name", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "business_legal_name",
+      "field_name": "Business Applicant Legal Name",
+      "type": "text",
+      "required": true,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Business Applicant Legal Name", "Legal Business Name"],
+        "anchors": [
+          {"text": "Business Applicant Legal Name", "strategy": "right", "offset": 250},
+          {"text": "Legal Name", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "ownership_percentage",
+      "field_name": "What percentage of the applicant business do/will you own?",
+      "type": "number",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": ["What percentage of the applicant business dowill you own", "What percentage of the applicant business do/will you own?", "Ownership %"],
+        "anchors": []
+      },
+      "normalize": {
+        "number_format": "percentage"
+      },
+      "validate": {
+        "min": 0,
+        "max": 100
+      }
+    },
+    {
+      "id": "business_tax_id",
+      "field_name": "Business Tax ID Number",
+      "type": "text",
+      "required": true,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Business Tax ID Number", "EIN", "Tax ID"],
+        "anchors": [
+          {"text": "Business Tax ID Number", "strategy": "right", "offset": 200},
+          {"text": "Tax ID", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "pattern": "\\d{2}-\\d{7}"
+      },
+      "validate": {
+        "pattern": "^\\d{2}-\\d{7}$"
+      }
+    },
+    {
+      "id": "business_structure",
+      "field_name": "Business Structure",
+      "type": "checkbox_group",
+      "required": true,
+      "page": 2,
+      "extraction": {
+        "acroform": [],
+        "anchors": [],
+        "checkboxes": {
+          "Sole Proprietorship": ["Sole Proprietorship"],
+          "Corporation": ["Corporation", "Corp"],
+          "Partnership": ["Partnership"],
+          "Limited Liability": ["Limited Liability", "LLC"],
+          "Trust": ["Trust"]
+        }
+      }
+    },
+    {
+      "id": "spouse_name",
+      "field_name": "Spouse Name",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Spouse Name", "Spouse's Name"],
+        "anchors": [
+          {"text": "Spouse Name", "strategy": "right", "offset": 150},
+          {"text": "Spouse's Name", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "spouse_ssn",
+      "field_name": "Social Security Number_2",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": ["Social Security Number_2", "Spouse SSN"],
+        "anchors": [
+          {"text": "Social Security Number", "strategy": "right", "offset": 200, "occurrence": 2}
+        ]
+      },
+      "normalize": {
+        "pattern": "XXX-XX-\\d{4}",
+        "mask": true
+      }
+    },
+    {
+      "id": "business_phone",
+      "field_name": "Applicant Business Phone Number",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Applicant Business Phone Number", "Business Phone"],
+        "anchors": [
+          {"text": "Business Phone Number", "strategy": "right", "offset": 200},
+          {"text": "Business Phone", "strategy": "right", "offset": 150}
+        ]
+      },
+      "normalize": {
+        "phone_format": "US"
+      }
+    },
+    {
+      "id": "business_address",
+      "field_name": "Principal Place of Business Address",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Principal Place of Business Address", "Business Address"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "business_city_state_zip",
+      "field_name": "City State Zip_2",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": ["City State Zip_2", "City, State, Zip_2"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "primary_contact",
+      "field_name": "Primary Contact of Business",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Primary Contact of Business", "Primary Contact"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "printed_name_1",
+      "field_name": "Printed Name",
+      "type": "text",
+      "required": false,
+      "page": 3,
+      "extraction": {
+        "acroform": ["Printed Name", "Printed Name_1"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "printed_name_2",
+      "field_name": "Printed Name_2",
+      "type": "text",
+      "required": false,
+      "page": 3,
+      "extraction": {
+        "acroform": ["Printed Name_2"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "printed_name_3",
+      "field_name": "Printed Name_3",
+      "type": "text",
+      "required": false,
+      "page": 3,
+      "extraction": {
+        "acroform": ["Printed Name_3"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "entity_name",
+      "field_name": "Entity Name",
+      "type": "text",
+      "required": false,
+      "page": 3,
+      "extraction": {
+        "acroform": ["Entity Name", "Entity Name_1"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "entity_signer",
+      "field_name": "Signer on behalf of the entity",
+      "type": "text",
+      "required": false,
+      "page": 3,
+      "extraction": {
+        "acroform": ["Signer on behalf of the entity", "Entity Signer"],
+        "anchors": []
+      }
+    },
+    {
+      "id": "small_business_legal_name",
+      "field_name": "Small Business Legal Name",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": ["Small Business Legal Name"],
+        "anchors": []
+      }
+    }
+  ],
+  "tables": [],
+  "metadata": {
+    "created": "2025-01-14",
+    "last_updated": "2025-01-14",
+    "bank": "Live Oak Bank",
+    "form_type": "SBA Express Application"
+  }
+}
