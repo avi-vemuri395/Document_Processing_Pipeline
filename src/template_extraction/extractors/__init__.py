@@ -6,6 +6,7 @@ from .base import BaseExtractor, ExtractionResult
 from .acroform import AcroFormExtractor
 from .anchor import AnchorExtractor
 from .checkbox import CheckboxExtractor
+from .date import DateExtractor
 
 __all__ = [
     'BaseExtractor',
@@ -13,4 +14,5 @@ __all__ = [
     'AcroFormExtractor',
     'AnchorExtractor',
     'CheckboxExtractor',
+    'DateExtractor',
 ]

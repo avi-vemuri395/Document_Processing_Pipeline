@@ -1,0 +1,868 @@
+{
+  "form_id": "huntington_pfs",
+  "version": "2025.01",
+  "form_title": "Huntington Bank Personal Financial Statement",
+  "fingerprint": {
+    "pages": 3,
+    "fields_count": 453,
+    "title_text": "PERSONAL FINANCIAL STATEMENT"
+  },
+  "sections": [
+    "Personal Information",
+    "Assets",
+    "Liabilities",
+    "Income",
+    "Schedules"
+  ],
+  "fields": [
+    {
+      "id": "applicant_name",
+      "field_name": "Applicant Full Legal Name",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Applicant Full Legal Name"
+        ],
+        "anchors": [
+          {
+            "text": "Applicant Full Legal Name",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      },
+      "normalize": {
+        "case": "preserve",
+        "trim": true
+      },
+      "validate": {
+        "min_length": 2,
+        "max_length": 100
+      }
+    },
+    {
+      "id": "spouse_name",
+      "field_name": "Spouse Full Legal Name",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Spouse  Full Legal Name"
+        ],
+        "anchors": [
+          {
+            "text": "Spouse",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "street_address",
+      "field_name": "Street Address",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Street Address"
+        ],
+        "anchors": [
+          {
+            "text": "Street Address",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "city_state_zip",
+      "field_name": "City State Zip",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "City State  Zip"
+        ],
+        "anchors": [
+          {
+            "text": "City State",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "county",
+      "field_name": "County",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "County"
+        ],
+        "anchors": [
+          {
+            "text": "County",
+            "strategy": "right",
+            "offset": 100
+          }
+        ]
+      }
+    },
+    {
+      "id": "employer_occupation",
+      "field_name": "Employer Occupation",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Employer  Occupation"
+        ],
+        "anchors": [
+          {
+            "text": "Employer",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "home_phone",
+      "field_name": "Home Phone",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Home Phone"
+        ],
+        "anchors": [
+          {
+            "text": "Home Phone",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      },
+      "normalize": {
+        "phone_format": "US"
+      }
+    },
+    {
+      "id": "business_phone",
+      "field_name": "Business Phone",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Business Phone"
+        ],
+        "anchors": [
+          {
+            "text": "Business Phone",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      },
+      "normalize": {
+        "phone_format": "US"
+      }
+    },
+    {
+      "id": "date_of_birth",
+      "field_name": "Date of Birth",
+      "type": "date",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Date of Birth"
+        ],
+        "anchors": [
+          {
+            "text": "Date of Birth",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      },
+      "validate": {
+        "date_format": [
+          "MM/DD/YYYY",
+          "MM-DD-YYYY",
+          "YYYY-MM-DD"
+        ]
+      }
+    },
+    {
+      "id": "ssn",
+      "field_name": "Social Security Number",
+      "type": "text",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Social Security Number"
+        ],
+        "anchors": [
+          {
+            "text": "Social Security Number",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      },
+      "normalize": {
+        "pattern": "XXX-XX-\\d{4}",
+        "mask": true
+      },
+      "validate": {
+        "pattern": "^(XXX-XX-\\d{4}|\\d{3}-\\d{2}-\\d{4})$"
+      }
+    },
+    {
+      "id": "drivers_license",
+      "field_name": "Drivers License Number",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Drivers License Number"
+        ],
+        "anchors": [
+          {
+            "text": "Driver",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "drivers_license_state",
+      "field_name": "State",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "State"
+        ],
+        "anchors": [
+          {
+            "text": "State",
+            "strategy": "right",
+            "offset": 100
+          }
+        ]
+      }
+    },
+    {
+      "id": "drivers_license_issue_date",
+      "field_name": "Issue Date",
+      "type": "date",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Issue Date"
+        ],
+        "anchors": [
+          {
+            "text": "Issue Date",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "drivers_license_exp_date",
+      "field_name": "Exp Date",
+      "type": "date",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Exp Date"
+        ],
+        "anchors": [
+          {
+            "text": "Exp Date",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "cash_on_hand",
+      "field_name": "Cash on hand and on Deposit",
+      "type": "money",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "ApplicantCash on hand and on Deposit Schedule 1"
+        ],
+        "anchors": [
+          {
+            "text": "Cash on hand",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "us_government_obligations",
+      "field_name": "US Government Obligations",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "ApplicantUS Government Obligations"
+        ],
+        "anchors": [
+          {
+            "text": "US Government Obligations",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "other_investments",
+      "field_name": "Other Investments",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "ApplicantOther Investments Schedule 2"
+        ],
+        "anchors": [
+          {
+            "text": "Other Investments",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "ira_401k",
+      "field_name": "IRA Keogh Plans Annuity 401K",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Spouse IRA  Keogh Plans  Annuity  401K Schedule 3"
+        ],
+        "anchors": [
+          {
+            "text": "IRA",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "life_insurance_cash_value",
+      "field_name": "Life Insurance Cash Value",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Life InsuranceCash Value Schedule 4"
+        ],
+        "anchors": [
+          {
+            "text": "Life Insurance",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "accounts_receivable",
+      "field_name": "Accounts Receivable",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Accounts Receivable Schedule 5"
+        ],
+        "anchors": [
+          {
+            "text": "Accounts Receivable",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "real_estate_value",
+      "field_name": "Real Estate Appraised Value",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Real EstateAppraised Value Schedule 6"
+        ],
+        "anchors": [
+          {
+            "text": "Real Estate",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "total_assets",
+      "field_name": "Total Assets",
+      "type": "money",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Total Assets",
+          "ApplicantTotal Assets"
+        ],
+        "anchors": [
+          {
+            "text": "Total Assets",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "mortgage_notes_payable",
+      "field_name": "Mortgage Notes Payable",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "ApplicantMortgage Notes Payable Schedule 6"
+        ],
+        "anchors": [
+          {
+            "text": "Mortgage Notes Payable",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "unsecured_notes",
+      "field_name": "Unsecured Notes",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Unsecured Notes Schedule 7"
+        ],
+        "anchors": [
+          {
+            "text": "Unsecured Notes",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "accounts_unpaid",
+      "field_name": "Contract Accounts Unpaid",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Contract Accounts Unpaid Schedule 8"
+        ],
+        "anchors": [
+          {
+            "text": "Contract Accounts",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "open_accounts_unpaid",
+      "field_name": "Open Accounts Unpaid",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Open Accounts Unpaid Schedule 8"
+        ],
+        "anchors": [
+          {
+            "text": "Open Accounts",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "taxes_due",
+      "field_name": "Taxes Due",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Taxes Due"
+        ],
+        "anchors": [
+          {
+            "text": "Taxes Due",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "total_liabilities",
+      "field_name": "Total Liabilities",
+      "type": "money",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Total Liabilities",
+          "ApplicantTotal Liabilities"
+        ],
+        "anchors": [
+          {
+            "text": "Total Liabilities",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "net_worth",
+      "field_name": "Net Worth",
+      "type": "money",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Net Worth",
+          "ApplicantNet Worth"
+        ],
+        "anchors": [
+          {
+            "text": "Net Worth",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "annual_income",
+      "field_name": "Annual Income",
+      "type": "money",
+      "required": true,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Annual Income",
+          "Gross Annual Income"
+        ],
+        "anchors": [
+          {
+            "text": "Annual Income",
+            "strategy": "right",
+            "offset": 200
+          }
+        ]
+      }
+    },
+    {
+      "id": "printed_name",
+      "field_name": "Printed Name",
+      "type": "text",
+      "required": false,
+      "page": 2,
+      "extraction": {
+        "acroform": [
+          "Printed Name"
+        ],
+        "anchors": [
+          {
+            "text": "Printed Name",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "us_citizen",
+      "field_name": "US Citizen",
+      "type": "checkbox",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Check Box1"
+        ],
+        "checkboxes": {
+          "Yes": [
+            "Check Box1"
+          ],
+          "No": [
+            "Check Box2"
+          ]
+        }
+      }
+    },
+    {
+      "id": "resident_alien",
+      "field_name": "Resident Alien",
+      "type": "checkbox",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Check Box3"
+        ],
+        "checkboxes": {
+          "Yes": [
+            "Check Box3"
+          ],
+          "No": [
+            "Check Box4"
+          ]
+        }
+      }
+    },
+    {
+      "id": "email",
+      "field_name": "Email Address",
+      "type": "email",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Email",
+          "Email Address"
+        ],
+        "anchors": [
+          {
+            "text": "Email",
+            "strategy": "right",
+            "offset": 150
+          }
+        ]
+      },
+      "normalize": {
+        "case": "lower",
+        "trim": true
+      },
+      "validate": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      }
+    },
+    {
+      "id": "spouse_ssn",
+      "field_name": "Spouse Social Security Number",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Social Security Number_2"
+        ],
+        "anchors": [
+          {
+            "text": "Social Security Number",
+            "strategy": "right",
+            "offset": 200,
+            "occurrence": 2
+          }
+        ]
+      },
+      "normalize": {
+        "pattern": "XXX-XX-\\d{4}",
+        "mask": true
+      }
+    },
+    {
+      "id": "spouse_date_of_birth",
+      "field_name": "Spouse Date of Birth",
+      "type": "date",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Date of Birth_2"
+        ],
+        "anchors": [
+          {
+            "text": "Date of Birth",
+            "strategy": "right",
+            "offset": 150,
+            "occurrence": 2
+          }
+        ]
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      }
+    },
+    {
+      "id": "spouse_employer",
+      "field_name": "Spouse Employer Occupation",
+      "type": "text",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Employer  Occupation_2"
+        ],
+        "anchors": [
+          {
+            "text": "Employer",
+            "strategy": "right",
+            "offset": 150,
+            "occurrence": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "spouse_cash_on_hand",
+      "field_name": "Spouse Cash on hand",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Spouse Cash on hand and on Deposit Schedule 1"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "id": "joint_cash_on_hand",
+      "field_name": "Joint Cash on hand",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "JointCash on hand and on Deposit Schedule 1"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "id": "farm_implements",
+      "field_name": "Farm Implements or Machinery",
+      "type": "money",
+      "required": false,
+      "page": 1,
+      "extraction": {
+        "acroform": [
+          "Farm Implements or Machinery"
+        ],
+        "anchors": []
+      }
+    }
+  ],
+  "tables": [
+    {
+      "id": "schedule_1_deposits",
+      "name": "Cash on Hand and on Deposit",
+      "page": 2,
+      "columns": [
+        {
+          "name": "Name & Location of Depository",
+          "type": "text"
+        },
+        {
+          "name": "Type of Account",
+          "type": "text"
+        },
+        {
+          "name": "Amount",
+          "type": "money"
+        }
+      ]
+    },
+    {
+      "id": "schedule_6_real_estate",
+      "name": "Real Estate",
+      "page": 2,
+      "columns": [
+        {
+          "name": "Property Address",
+          "type": "text"
+        },
+        {
+          "name": "Appraised Value",
+          "type": "money"
+        },
+        {
+          "name": "Mortgage Balance",
+          "type": "money"
+        },
+        {
+          "name": "Net Value",
+          "type": "money"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "created": "2025-01-14",
+    "last_updated": "2025-01-14",
+    "bank": "Huntington Bank",
+    "form_type": "Personal Financial Statement",
+    "total_fields": 453,
+    "template_fields": 40
+  }
+}
