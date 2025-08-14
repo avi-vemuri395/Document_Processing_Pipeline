@@ -4,7 +4,6 @@ Simplified benchmark implementation for unstructured extraction and form filling
 """
 
 from .core.schema_generator import PrismaSchemaGenerator
-from .core.confidence_aggregator import ConfidenceAggregator
 from .providers import (
     BenchmarkExtractor,
     LLMFormFiller,
@@ -14,7 +13,6 @@ from .providers import (
 
 __all__ = [
     "PrismaSchemaGenerator",
-    "ConfidenceAggregator",
     "BenchmarkExtractor",
     "LLMFormFiller",
     "LLMFormFillerWithPDF",

@@ -49,7 +49,7 @@ class UniversalPreprocessor:
         """Initialize with universal settings only."""
         # Universal quality settings
         self.min_resolution = 1024  # Minimum for text readability
-        self.max_resolution = 2048  # Claude's optimal size
+        self.max_resolution = 1900  # Claude's limit for multi-image requests (2000px)
         self.quality_threshold = 0.1  # Auto-contrast cutoff
         
     def preprocess_any_document(self, file_path: Union[str, Path]) -> ProcessedDocument:
@@ -276,6 +276,14 @@ class UniversalPreprocessor:
     def _apply_universal_enhancements(self, image: Image.Image) -> Image.Image:
         """Apply only universally beneficial enhancements."""
         
+        # Convert RGBA to RGB if needed (many PIL operations don't support RGBA)
+        if image.mode == 'RGBA':
+            # Create white background
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            # Paste image using alpha channel as mask
+            background.paste(image, mask=image.split()[3] if len(image.split()) > 3 else None)
+            image = background
+        
         # 1. Ensure minimum readable resolution
         if max(image.size) < self.min_resolution:
             scale = self.min_resolution / max(image.size)
@@ -310,6 +318,17 @@ class UniversalPreprocessor:
             else:
                 format_type = 'JPEG'
                 media_type = 'image/jpeg'
+                
+                # Convert RGBA to RGB for JPEG (JPEG doesn't support transparency)
+                if img.mode == 'RGBA':
+                    # Create white background
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    # Paste image using alpha channel as mask
+                    background.paste(img, mask=img.split()[3] if len(img.split()) > 3 else None)
+                    img = background
+                elif img.mode not in ['RGB', 'L']:
+                    # Convert other modes to RGB for JPEG
+                    img = img.convert('RGB')
             
             # Convert to base64
             buffer = io.BytesIO()

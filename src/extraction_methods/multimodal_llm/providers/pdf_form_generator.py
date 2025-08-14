@@ -12,7 +12,7 @@ from datetime import datetime
 # Try different PDF libraries in order of preference
 PDF_LIBRARY = None
 try:
-    from pypdfform import PyPDFForm  # Note: lowercase package name
+    from PyPDFForm import PdfWrapper  # Correct import for PyPDFForm
     PDF_LIBRARY = "PyPDFForm"
 except ImportError:
     try:
@@ -293,10 +293,10 @@ class AcroFormFiller:
     ) -> bool:
         """Fill PDF using PyPDFForm library."""
         try:
-            from pypdfform import PyPDFForm  # Note: lowercase package name
+            from PyPDFForm import PdfWrapper  # Correct import
             
             # Create form object
-            pdf = PyPDFForm(str(template_path))
+            pdf = PdfWrapper(str(template_path))
             
             # Fill the form
             pdf.fill(data)

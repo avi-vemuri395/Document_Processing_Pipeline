@@ -44,7 +44,7 @@ def check_env():
     print("\n⚙️  Configuration Settings:")
     
     settings = {
-        "CLAUDE_MODEL": os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022"),
+        "CLAUDE_MODEL": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
         "CONFIDENCE_THRESHOLD": os.getenv("CONFIDENCE_THRESHOLD", "0.85"),
         "MAX_RETRIES": os.getenv("MAX_RETRIES", "3"),
         "REQUEST_TIMEOUT": os.getenv("REQUEST_TIMEOUT", "120"),

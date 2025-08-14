@@ -43,7 +43,7 @@ class LLMFormFiller:
         
         self.extractor = BenchmarkExtractor(api_key)
         self.client = AsyncAnthropic(api_key=api_key)
-        self.model = "claude-3-5-sonnet-20241022"
+        self.model = "claude-sonnet-4-20250514"
     
     async def fill_forms_from_documents(
         self,

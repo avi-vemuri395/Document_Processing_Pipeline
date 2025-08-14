@@ -50,7 +50,7 @@ class BenchmarkExtractor:
         
         self.client = AsyncAnthropic(api_key=api_key)
         self.preprocessor = UniversalPreprocessor()
-        self.model = "claude-3-5-sonnet-20241022"
+        self.model = "claude-sonnet-4-20250514"
     
     async def extract_all(
         self, 
@@ -157,6 +157,31 @@ class BenchmarkExtractor:
 5. Note any calculated fields (net worth = assets - liabilities)
 6. Capture ownership percentages and business entity relationships
 
+## FINANCIAL DATA EXTRACTION (CRITICAL):
+For Balance Sheets, P&L Statements, and Financial Tables:
+- Extract ALL line items with their values
+- Look for: Current Assets, Fixed Assets, Total Assets
+- Look for: Current Liabilities, Long-term Debt, Total Liabilities
+- Look for: Revenue, Expenses, Net Income, EBITDA
+- Look for: Cash, Accounts Receivable, Inventory
+- Extract both current year AND prior year columns if present
+
+For Tax Returns:
+- Line 1: Gross receipts or sales
+- Line 11: Total income
+- Line 21: Total expenses
+- Line 31: Net income
+- Schedule K: Partner's distributive share items
+- Form 1065: Partnership income details
+- Form 1120S: S-Corp income details
+- Personal returns: AGI, taxable income, refund/amount owed
+
+For Excel/Spreadsheet Data:
+- Extract ALL cells with values
+- Preserve row/column relationships
+- Look for totals, subtotals, and formulas
+- Capture sheet names and tabs
+
 ## OUTPUT STRUCTURE:
 {
   "metadata": {
@@ -210,45 +235,106 @@ class BenchmarkExtractor:
   },
   
   "financials": {
-    "assets": {
-      "liquid": {
-        "cash_on_hand": number,
-        "checking_accounts": [{"bank": "", "balance": number}],
-        "savings_accounts": [{"bank": "", "balance": number}],
-        "money_market": number,
-        "cds": number
+    "balance_sheet": {
+      "assets": {
+        "current_assets": {
+          "cash": number,
+          "accounts_receivable": number,
+          "inventory": number,
+          "prepaid_expenses": number,
+          "other_current": number,
+          "total_current_assets": number
+        },
+        "fixed_assets": {
+          "property_plant_equipment": number,
+          "accumulated_depreciation": number,
+          "net_fixed_assets": number
+        },
+        "other_assets": {
+          "intangibles": number,
+          "investments": number,
+          "other": number
+        },
+        "total_assets": number
       },
-      "investments": {
-        "stocks_bonds": [{"description": "", "value": number}],
-        "retirement_accounts": [{"type": "401k|IRA", "value": number}],
-        "life_insurance_cash_value": number
+      "liabilities": {
+        "current_liabilities": {
+          "accounts_payable": number,
+          "accrued_expenses": number,
+          "current_portion_ltd": number,
+          "other_current": number,
+          "total_current_liabilities": number
+        },
+        "long_term_debt": number,
+        "other_liabilities": number,
+        "total_liabilities": number
       },
-      "real_estate": [
-        {
-          "address": {"street": "", "city": "", "state": "", "zip": ""},
-          "property_type": "Primary|Rental|Commercial|Land",
-          "current_value": number,
-          "purchase_price": number,
-          "purchase_date": "YYYY-MM-DD",
-          "mortgage": {
-            "lender": "",
-            "original_amount": number,
-            "current_balance": number,
-            "monthly_payment": number,
-            "interest_rate": number
-          }
-        }
-      ],
-      "personal_property": {
-        "vehicles": [{"year": "", "make": "", "model": "", "value": number}],
-        "other": [{"description": "", "value": number}]
-      },
-      "business_assets": {
-        "equipment": number,
-        "inventory": number,
-        "accounts_receivable": number
+      "equity": {
+        "paid_in_capital": number,
+        "retained_earnings": number,
+        "total_equity": number
       }
     },
+    "income_statement": {
+      "revenue": {
+        "gross_sales": number,
+        "returns_allowances": number,
+        "net_sales": number
+      },
+      "cost_of_goods_sold": number,
+      "gross_profit": number,
+      "operating_expenses": {
+        "salaries_wages": number,
+        "rent": number,
+        "utilities": number,
+        "depreciation": number,
+        "other": number,
+        "total_operating_expenses": number
+      },
+      "operating_income": number,
+      "other_income_expenses": number,
+      "net_income": number
+    },
+    "personal_financial_statement": {
+      "assets": {
+        "liquid": {
+          "cash_on_hand": number,
+          "checking_accounts": [{"bank": "", "balance": number}],
+          "savings_accounts": [{"bank": "", "balance": number}],
+          "money_market": number,
+          "cds": number
+        },
+        "investments": {
+          "stocks_bonds": [{"description": "", "value": number}],
+          "retirement_accounts": [{"type": "401k|IRA", "value": number}],
+          "life_insurance_cash_value": number
+        },
+        "real_estate": [
+          {
+            "address": {"street": "", "city": "", "state": "", "zip": ""},
+            "property_type": "Primary|Rental|Commercial|Land",
+            "current_value": number,
+            "purchase_price": number,
+            "purchase_date": "YYYY-MM-DD",
+            "mortgage": {
+              "lender": "",
+              "original_amount": number,
+              "current_balance": number,
+              "monthly_payment": number,
+              "interest_rate": number
+            }
+          }
+        ],
+        "personal_property": {
+          "vehicles": [{"year": "", "make": "", "model": "", "value": number}],
+          "other": [{"description": "", "value": number}]
+        },
+        "business_assets": {
+          "equipment": number,
+          "inventory": number,
+          "accounts_receivable": number
+        }
+      },
     
     "liabilities": {
       "real_estate_loans": [/* see real_estate.mortgage structure */],
@@ -380,76 +466,12 @@ Return ONLY valid JSON. Be extremely precise with numbers and business relations
             
         except json.JSONDecodeError as e:
             print(f"Failed to parse JSON: {e}")
-            return {"raw_text": raw_text, "error": str(e)}
+            return {"_extraction_failed": True, "raw_text": raw_text, "error": f"JSON parse error: {str(e)}"}
         except Exception as e:
             print(f"API call failed: {e}")
-            return {"error": str(e)}
+            # Check if it's an API error with image size issue
+            error_msg = str(e)
+            if "2000 pixels" in error_msg:
+                print("⚠️  Image dimensions exceed API limit for multi-image requests (2000px)")
+            return {"_extraction_failed": True, "error": error_msg, "error_type": type(e).__name__}
     
-
-
-class SimpleFormFiller:
-    """
-    Optional: Maps unstructured JSON to form fields.
-    Uses simple fuzzy matching without complex logic.
-    """
-    
-    def __init__(self):
-        self.extractor = BenchmarkExtractor()
-    
-    async def extract_and_fill(
-        self,
-        documents: List[Union[str, Path]],
-        form_template: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Extract data and map to form template.
-        
-        Args:
-            documents: List of document paths
-            form_template: Template with field names as keys
-            
-        Returns:
-            Filled form with extracted values
-        """
-        # Extract unstructured data
-        extracted = await self.extractor.extract_all(documents)
-        
-        # Simple mapping to form fields
-        filled_form = {}
-        for field_name in form_template:
-            value = self._find_value_in_json(field_name, extracted)
-            filled_form[field_name] = value
-        
-        return filled_form
-    
-    def _find_value_in_json(self, field_name: str, data: Dict, depth: int = 0) -> Any:
-        """
-        Recursively search for field in unstructured JSON.
-        Simple fuzzy matching based on key similarity.
-        """
-        if depth > 5:  # Prevent infinite recursion
-            return None
-        
-        # Direct match
-        if field_name in data:
-            return data[field_name]
-        
-        # Case-insensitive match
-        field_lower = field_name.lower()
-        for key, value in data.items():
-            if key.lower() == field_lower:
-                return value
-        
-        # Partial match
-        for key, value in data.items():
-            if field_lower in key.lower() or key.lower() in field_lower:
-                return value
-        
-        # Recursive search in nested objects
-        for value in data.values():
-            if isinstance(value, dict):
-                result = self._find_value_in_json(field_name, value, depth + 1)
-                if result is not None:
-                    return result
-        
-        return None
