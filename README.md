@@ -1,68 +1,230 @@
-# Document Processing Pipeline
 
-Automated loan document extraction system that processes financial documents and fills bank forms using Claude 3.5 Vision API. Reduces processing time from 3-5 days to **2-4 hours** with **85-97% accuracy**.
+## 🏗️ Architecture Overview
 
-## Two-Part Architecture
+### Two-Part Pipeline Design
 
 ```
-PART 1: Extract ONCE → Master JSON Pool
-PART 2: Map to MANY → 9 Bank Forms + PDFs
+┌─────────────────────────────────────────────────────────────────┐
+│                   PART 1: DOCUMENT PROCESSING                    │
+│     Documents → Comprehensive Extraction → Master JSON Pool      │
+│                                                                 │
+│  📄 Input: PDF, Excel, Images                                   │
+│  🔄 Process: unstructured json -> Claude→ Structured JSON       │
+│  💾 Output: master_data.json (ALL extracted data)              │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    PART 2: FORM GENERATION                       │
+│  Master JSON → Intelligent Mapping → 9 Bank Forms + PDFs        │
+│                                                                 │
+│  🎯 Live Oak: Application, PFS, 4506-T                         │
+│  🏦 Huntington: Business App, Tax Transcript, Debt Schedule    │
+│  🏧 Wells Fargo: Financial Questionnaire, Business Info        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Key Files & Flow
+**Key Principle**: Extract data ONCE, map to MANY outputs
 
-### 1. Entry Point
-**`pipeline_orchestrator.py`** - Coordinates the entire two-part pipeline
+## 🚀 Quick Start
+
+### Environment Setup
+```bash
+# Install dependencies
+pip install -r requirements-minimal.txt
+```
+
+### Run Tests
+```bash
+# Fast test (2 PDFs + 2 Excel, ~2 minutes)
+python3 run_fast_test.py
+
+# Comprehensive test (19 documents, ~8 minutes)
+python3 run_comprehensive_test.py
+
+# Analyze PDF structure (no API calls)
+python3 tests/analysis/test_pdf_technical_structure.py
+```
+
+### Basic Usage
 ```python
-# Usage
+from src.template_extraction import PipelineOrchestrator
+
+orchestrator = PipelineOrchestrator()
+
+# Process documents incrementally (simulates prod)
 results = await orchestrator.process_application(
     application_id="app_001",
-    documents=["pfs.pdf", "tax_return.pdf"],
-    target_banks=["live_oak", "huntington"]
+    documents=[
+        Path("inputs/real/Brigham_dallas/Brigham_Dallas_PFS.pdf"),
+        Path("inputs/real/Brigham_dallas/Hello_Sugar_LLC_2023.pdf")
+    ],
+    target_banks=["live_oak", "huntington"],
+    generate_spreadsheets=True
 )
 ```
 
-### 2. Part 1: Document Extraction
-**`comprehensive_processor.py`** - Extracts ALL data from documents ONCE
-- Calls Claude API with vision to extract structured data
-- Merges new documents with existing master JSON (incremental processing)
-- Output: `master_data.json` with all extracted information
+## 🔧 Core Components
 
-**`benchmark_extractor.py`** - Core extraction engine
-- Converts documents to images for Claude Vision
-- Single API call extracts all financial data
-- Returns structured JSON with SSN, assets, liabilities, business info
+### Part 1: Document Extraction
 
-### 3. Part 2: Form Mapping
-**`form_mapping_service.py`** - Maps master JSON to 9 different bank forms
-- Intelligent field matching (handles name variations)
-- Deep flattening to extract leaf values from nested data
-- Generates both JSON mappings and filled PDFs
+#### **PipelineOrchestrator** (`pipeline_orchestrator.py`)
+- **Role**: Main coordinator for the entire pipeline
+- **Features**: Incremental processing, bank selection, output management
+- **Input**: Document paths, application ID, target banks
+- **Output**: Complete results with forms, PDFs, and spreadsheets
 
-**`pdf_form_generator.py`** - Fills actual PDF forms
-- Maps extracted data to PDF form fields
-- Handles text fields and checkboxes
-- Outputs filled PDFs ready for submission
+#### **ComprehensiveProcessor** (`comprehensive_processor.py`) 
+- **Role**: Extract ALL data from documents ONCE (Part 1 implementation)
+- **Method**: Uses BenchmarkExtractor → merges with existing master JSON
+- **Key Feature**: Deep merge logic preserves data across incremental document additions
+- **Output**: `master_data.json` with comprehensive structured data
 
-## Supported Forms (9 Total)
+#### **BenchmarkExtractor** (`benchmark_extractor.py`)
+- **Role**: Core extraction engine using Claude 4 Sonnet Vision API
+- **Process**: Document → UniversalPreprocessor → Images → Claude Vision → JSON
+- **Model**: `claude-sonnet-4-20250514`
+- **Features**: 
+  - Supports Files API mode for native PDF processing (rate limit issues)
+  - Automatic image optimization (resolution, contrast)
+  - Comprehensive financial data extraction with validation
 
-- **Live Oak**: Application, PFS, 4506-T
-- **Huntington**: Business App, PFS, Tax Transcript, Debt Schedule  
-- **Wells Fargo**: Loan App, Financial Questionnaire
+#### **UniversalPreprocessor** (`universal_preprocessor.py`)
+- **Role**: Convert ANY document format to optimized images for Claude Vision
+- **Supported**: PDF, Excel (.xlsx/.xls), Images (PNG/JPG), Text files
+- **Process**: 
+  - PDF → High-resolution images (pdf2image)
+  - Excel → HTML tables → Screenshot images (pandas + matplotlib)
+  - Images → Resolution and contrast optimization
+- **Output**: List of enhanced PIL Images ready for Vision API
 
-## Quick Test
+### Part 2: Form Generation
 
-```bash
-# Test complete pipeline
-python test_two_part_pipeline.py
+#### **FormMappingService** (`form_mapping_service.py`)
+- **Role**: Map master JSON to 9 different bank forms (Part 2a implementation)
+- **Features**:
+  - Intelligent field matching with variations (SSN = social_security_number)
+  - Deep flattening to extract leaf values from nested JSON
+  - Form specification loading from `templates/form_specs/`
+  - Coverage calculation and validation
+- **Output**: Form-specific JSON mappings + PDF generation
 
-# Environment setup
-ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
+#### **PDFFormGenerator** (`pdf_form_generator.py`)
+- **Role**: Fill actual PDF forms with extracted data
+- **Technology**: PyPDFForm for deterministic field filling
+- **Features**:
+  - Text field mapping with data validation
+  - Checkbox state management (handles various PDF checkbox formats)
+  - AcroForm field discovery and mapping
+- **Output**: Filled PDF forms ready for bank submission
+
+#### **SpreadsheetMappingService** (`spreadsheet_mapping_service.py`)
+- **Role**: Generate Excel spreadsheets from master JSON (Part 2b implementation)
+- **Templates**: Debt Schedule, Use of Funds, Financial Projections
+- **Technology**: openpyxl for Excel template population
+- **Output**: Completed Excel files with extracted data
+
+## 🔍 Document Processing Intelligence
+
+### Document Type Handling
+- **Digital PDFs**: Excellent performance (95%+ accuracy)
+- **Scanned PDFs**: Good performance (Claude Vision sort of handles scan artifacts)
+- **Excel Files**: Need multi page
+- **Mixed Content**: Handles varying quality and formats
+
+### Validation
+- **Calculation Validation**: Automatically verifies math (eg assets - liabilities = net worth)
+- **Cross-Reference Checking**: Validates data consistency across documents
+- **Missing Field Detection**: Identifies incomplete extractions
+
+## 📁 Project Structure
+
+```
+Document_Processing_Pipeline/
+├── src/
+│   ├── template_extraction/           # Two-part pipeline
+│   │   ├── pipeline_orchestrator.py  # Main coordinator
+│   │   ├── comprehensive_processor.py # Part 1: Extract ONCE
+│   │   ├── form_mapping_service.py    # Part 2a: Map to forms
+│   │   └── spreadsheet_mapping_service.py # Part 2b: Excel generation
+│   └── extraction_methods/
+│       └── multimodal_llm/
+│           ├── providers/
+│           │   ├── benchmark_extractor.py # Core Claude Vision engine
+│           │   └── pdf_form_generator.py  # PDF filling
+│           └── core/
+│               └── universal_preprocessor.py # Document → Image conversion
+├── templates/
+│   ├── form_specs/                   # JSON specs for 9 bank forms
+│   ├── Live Oak Express - Application Forms.pdf
+│   ├── Huntington Bank Personal Financial Statement.pdf
+│   └── *.xlsx                        # Excel templates
+├── tests/
+│   ├── integration/                  # End-to-end pipeline tests
+│   ├── analysis/                     # PDF structure analysis
+│   └── pipeline/                     # Component-specific tests
+├── inputs/real/                      # Test documents
+└── outputs/                          # Generated results
 ```
 
-## Performance Metrics
+## 🔮 Future Enhancements
 
-- **Speed**: 30-60 seconds per document set
-- **Accuracy**: 85-97% field extraction
-- **Cost**: ~$0.01-0.05 per document
-- **Coverage**: Fills 100-150+ fields per application
+### Priority 2: Document Intelligence Router
+**Goal**: Optimize processing based on document characteristics
+**Implementation**:
+```python
+class DocumentRouter:
+    def classify_document(self, path) -> DocumentType:
+        # Digital PDF → Direct Vision API
+        # Scanned PDF → Enhanced preprocessing  
+        # Excel → Direct parsing or improved imaging
+        # Complex tables → Specialized extraction
+```
+
+### Priority 3: Advanced Extraction Features
+- **Multi-page table recognition**: Handle tables spanning multiple pages
+- **Confidence scoring per field**: Quality metrics for each extracted value
+
+### Priority 4: Production Optimizations
+- **Batch processing**: Process multiple documents in parallel
+- **Caching layer**: Cache extraction results for duplicate documents
+- **Incremental updates**: Smart re-processing when documents change
+- **API rate limiting**: Intelligent chunking
+
+## 🧪 Testing & Validation
+
+### Test packets ###
+- **Brigham Dallas Package**: 19 files (PFS, tax returns 2021-2024, business docs)
+- **Dave Burlington Package**: Complete loan application with projections
+
+## 📞 Support & Development
+
+### Environment Requirements
+- **Python**: 3.13.3+
+- **API Key**: Anthropic Claude API access
+- **System Dependencies**: 
+  - `poppler-utils` for PDF processing
+  - Standard ML libraries (PIL, pandas, etc.)
+
+### Key Commands
+```bash
+# Setup
+python3 check_env.py
+
+# Quick validation  
+python3 run_fast_test.py
+
+# Full system test
+python3 run_comprehensive_test.py
+
+# Analyze document types
+python3 tests/analysis/test_pdf_technical_structure.py
+```
+
+### Common Issues
+1. **API Rate Limits**: Reduce document batch sizes
+2. **Memory Usage**: Large documents may require chunking
+
+---
+
+**Architecture Version**: Two-Part Pipeline v2.0  
+**Claude Model**: claude-sonnet-4-20250514
