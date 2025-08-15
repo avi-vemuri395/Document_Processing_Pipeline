@@ -81,10 +81,7 @@ class PipelineOrchestrator:
             "master_data_path": str(
                 self.output_base / application_id / "part1_document_processing" / "master_data.json"
             ),
-            "total_fields_extracted": sum(
-                len(fields) for category, fields in master_data.items()
-                if isinstance(fields, dict) and category != "metadata"
-            ),
+            "total_fields_extracted": self._count_nested_fields(master_data),
             "categories": list(master_data.keys()),
             "documents_processed": master_data.get("metadata", {}).get("documents_processed", [])
         }
@@ -320,6 +317,38 @@ class PipelineOrchestrator:
             print(f"\n  📊 Spreadsheets Generated: {summary['spreadsheets_generated']}")
         
         print(f"\n✅ Pipeline execution complete!")
+    
+    def _count_nested_fields(self, data: Any, depth: int = 0) -> int:
+        """
+        Recursively count all non-null leaf fields in nested structure.
+        
+        Args:
+            data: Data structure to count fields in
+            depth: Current recursion depth (to prevent infinite recursion)
+            
+        Returns:
+            Count of non-null leaf fields
+        """
+        if depth > 10:  # Prevent infinite recursion
+            return 0
+        
+        count = 0
+        if isinstance(data, dict):
+            for key, value in data.items():
+                # Skip metadata and empty values
+                if key in ["metadata", "_metadata", "error"]:
+                    continue
+                if value not in [None, "", [], {}]:
+                    if isinstance(value, (dict, list)):
+                        count += self._count_nested_fields(value, depth + 1)
+                    else:
+                        count += 1
+        elif isinstance(data, list):
+            for item in data:
+                if item not in [None, "", [], {}]:
+                    count += self._count_nested_fields(item, depth + 1)
+        
+        return count
 
 
 async def main():

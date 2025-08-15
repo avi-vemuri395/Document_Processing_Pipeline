@@ -245,18 +245,29 @@ class FormMappingService:
         
         # Map each form field
         for field in form_spec.get('fields', []):
-            field_name = field.get('name', '')
+            # Fix: Use 'field_name' from spec, not 'name'
+            field_name = field.get('field_name', '')
             field_id = field.get('id', field_name)
+            
+            # Skip if no field name
+            if not field_name:
+                continue
             
             # Try direct match first
             value = None
-            if field_name in flat_master:
+            if field_id in flat_master:
+                value = flat_master[field_id]
+            elif field_id.lower() in flat_master:
+                value = flat_master[field_id.lower()]
+            elif field_name in flat_master:
                 value = flat_master[field_name]
             elif field_name.lower() in flat_master:
                 value = flat_master[field_name.lower()]
             else:
                 # Try intelligent matching based on common variations
-                value = self._find_field_match(field_name, flat_master)
+                value = self._find_field_match(field_id, flat_master)
+                if not value:
+                    value = self._find_field_match(field_name, flat_master)
             
             # Only add if value is not a dict or list (must be a leaf value)
             if value and not isinstance(value, (dict, list)):
@@ -264,7 +275,7 @@ class FormMappingService:
         
         return mapped_data
     
-    def _deep_flatten(self, obj: Any, parent_key: str = '', separator: str = '_') -> Dict[str, Any]:
+    def _deep_flatten(self, obj: Any, parent_key: str = '', separator: str = '.') -> Dict[str, Any]:
         """
         Recursively flatten nested dictionaries to extract only leaf values.
         
@@ -276,7 +287,7 @@ class FormMappingService:
         Returns:
             Flattened dictionary with only leaf values
         """
-        items = []
+        items = {}
         
         if isinstance(obj, dict):
             for key, value in obj.items():
@@ -288,36 +299,35 @@ class FormMappingService:
                 
                 if isinstance(value, dict):
                     # Recursively flatten nested dicts
-                    items.extend(self._deep_flatten(value, new_key, separator).items())
+                    items.update(self._deep_flatten(value, new_key, separator))
                 elif isinstance(value, list):
                     # Handle lists - extract first non-empty item if it's a primitive
                     for i, item in enumerate(value):
                         if item and not isinstance(item, (dict, list)):
-                            # Store both with index and without for better matching
-                            items.append((f"{new_key}[{i}]", item))
-                            if i == 0:  # Also store first item without index
-                                items.append((new_key, item))
-                            break
+                            # Store first item without index for simple access
+                            if i == 0:
+                                items[new_key] = item
+                            # Also store with index for specific access
+                            items[f"{new_key}[{i}]"] = item
                         elif isinstance(item, dict):
                             # Flatten dict items in lists
-                            items.extend(self._deep_flatten(item, f"{new_key}[{i}]", separator).items())
+                            items.update(self._deep_flatten(item, f"{new_key}[{i}]", separator))
                 elif value is not None and value != "" and value != []:
-                    # This is a leaf value - add it
-                    items.append((new_key, value))
-                    # Also add lowercase version for matching
-                    items.append((new_key.lower(), value))
+                    # This is a leaf value - add it with full path
+                    items[new_key] = value
                     
-                    # Add variations without parent keys for better matching
-                    if separator in new_key:
-                        last_part = key
-                        items.append((last_part, value))
-                        items.append((last_part.lower(), value))
+                    # For common fields, also add short version
+                    # This helps with field matching while avoiding too many duplicates
+                    common_fields = ['name', 'first', 'last', 'ssn', 'email', 'phone', 
+                                   'address', 'city', 'state', 'zip', 'ein', 'legal_name']
+                    if key.lower() in common_fields:
+                        items[key] = value
         elif not isinstance(obj, list):
             # It's a primitive value
             if obj is not None and obj != "":
                 return {parent_key: obj} if parent_key else {}
         
-        return dict(items)
+        return items
     
     def _find_field_match(
         self, 

@@ -88,14 +88,14 @@ class ComprehensiveEndToEndTest:
             print(f"  Available: {[doc.name for doc in all_docs]}")
         
         # Process first batch (5-6 documents to avoid rate limits in Phase 1)
-        batch1_docs = all_docs[:6]
+        batch1_docs = all_docs[:3]
         
         print(f"\n  Phase 1: Processing {len(batch1_docs)} documents (first batch):")
         for doc in batch1_docs:
             print(f"    • {doc.name}")
         
         # Store remaining docs for incremental phases
-        self.remaining_docs = all_docs[6:]
+        self.remaining_docs = all_docs[3:]
         print(f"\n  Remaining for incremental phases: {len(self.remaining_docs)} documents")
         
         existing_docs = batch1_docs
