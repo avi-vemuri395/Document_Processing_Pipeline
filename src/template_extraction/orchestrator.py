@@ -140,6 +140,79 @@ class ExtractionOrchestrator:
         
         return result
     
+    def process_single_document(self, 
+                               pdf_path: Path,
+                               form_id: str,
+                               application_id: str,
+                               document_id: str) -> Dict[str, Any]:
+        """
+        Process single document without state management.
+        Returns document-level extraction results for incremental processing.
+        
+        Args:
+            pdf_path: Path to PDF document
+            form_id: Form template ID
+            application_id: Application identifier
+            document_id: Unique document identifier
+            
+        Returns:
+            Document-level extraction result without caching or saving
+        """
+        pdf_path = Path(pdf_path)
+        
+        # Get form spec
+        spec = self.registry.get_spec(form_id)
+        if not spec:
+            raise ValueError(f"Form spec not found: {form_id}")
+        
+        # Run extraction pipeline (reuse existing logic)
+        extraction_result = self._run_extraction_pipeline(pdf_path, spec)
+        
+        # Normalize fields
+        for field_id, field_result in extraction_result.fields.items():
+            field_spec = spec.get_field_by_id(field_id)
+            if field_spec:
+                self.normalizer.normalize_field(field_spec, field_result)
+        
+        # Create document-level result
+        extracted_values = {}
+        confidence_scores = {}
+        
+        for field_id, field_result in extraction_result.fields.items():
+            if field_result.normalized_value is not None:
+                extracted_values[field_result.field_name] = field_result.normalized_value
+            elif field_result.selected_value is not None:
+                extracted_values[field_result.field_name] = field_result.selected_value
+            
+            # Track confidence scores for merge decisions
+            if field_result.candidates:
+                confidence_scores[field_result.field_name] = max(
+                    c.confidence for c in field_result.candidates
+                )
+        
+        # Return document-level result
+        return {
+            'document_id': document_id,
+            'application_id': application_id,
+            'form_id': form_id,
+            'document_name': pdf_path.name,
+            'extraction_timestamp': datetime.now().isoformat(),
+            'extracted_fields': extracted_values,
+            'confidence_scores': confidence_scores,
+            'metadata': {
+                'coverage': extraction_result.get_coverage(),
+                'extractors_used': list(set(
+                    c.source.get('extractor', 'unknown') 
+                    for f in extraction_result.fields.values() 
+                    for c in f.candidates
+                )),
+                'total_fields_attempted': len(spec.fields),
+                'fields_extracted': len(extracted_values)
+            },
+            'tables': getattr(extraction_result, 'tables', []),
+            'errors': extraction_result.errors
+        }
+    
     def _run_extraction_pipeline(self, pdf_path: Path, spec: FormSpec) -> ExtractionResult:
         """
         Run all extractors in sequence, merging results.

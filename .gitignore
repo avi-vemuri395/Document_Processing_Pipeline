@@ -193,9 +193,7 @@ config.staging.json
 
 
 # Large model files
-models/
 *.model
 *.pkl
 *.pickle
 
-*.md

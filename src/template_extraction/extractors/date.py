@@ -25,6 +25,9 @@ class DateExtractor(BaseExtractor):
         super().__init__()
         self.name = "date"
         
+        # Add missing stats field
+        self.stats['fields_attempted'] = 0
+        
         # Common date patterns
         self.date_patterns = [
             # MM/DD/YYYY or MM-DD-YYYY

@@ -1,0 +1,25 @@
+{
+  "form_id": "huntington_business_debt",
+  "form_name": "Huntington Business Debt Schedule",
+  "bank": "Huntington",
+  "version": "1.0",
+  "total_fields": 40,
+  "fields": [
+    {"name": "Creditor Name", "type": "text", "required": true},
+    {"name": "Account Number", "type": "text", "required": false},
+    {"name": "Original Amount", "type": "currency", "required": true},
+    {"name": "Current Balance", "type": "currency", "required": true},
+    {"name": "Monthly Payment", "type": "currency", "required": true},
+    {"name": "Interest Rate", "type": "percentage", "required": true},
+    {"name": "Maturity Date", "type": "date", "required": false},
+    {"name": "Collateral", "type": "text", "required": false},
+    {"name": "Personal Guarantee", "type": "checkboxes", "required": false}
+  ],
+  "tables": [
+    {
+      "name": "debt_schedule",
+      "type": "repeating",
+      "columns": ["Creditor", "Balance", "Payment", "Rate", "Maturity"]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "form_id": "live_oak_4506t",
+  "form_name": "Live Oak Form 4506-T",
+  "bank": "Live Oak",
+  "version": "1.0",
+  "total_fields": 25,
+  "fields": [
+    {"name": "Taxpayer Name", "type": "text", "required": true},
+    {"name": "Taxpayer SSN/EIN", "type": "text", "required": true},
+    {"name": "Spouse Name", "type": "text", "required": false},
+    {"name": "Spouse SSN", "type": "text", "required": false},
+    {"name": "Current Address", "type": "text", "required": true},
+    {"name": "City State Zip", "type": "text", "required": true},
+    {"name": "Previous Address", "type": "text", "required": false},
+    {"name": "Tax Form Number", "type": "text", "required": true},
+    {"name": "Tax Year 1", "type": "text", "required": true},
+    {"name": "Tax Year 2", "type": "text", "required": false},
+    {"name": "Tax Year 3", "type": "text", "required": false},
+    {"name": "Tax Year 4", "type": "text", "required": false}
+  ]
+}

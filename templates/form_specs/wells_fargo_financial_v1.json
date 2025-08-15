@@ -1,0 +1,33 @@
+{
+  "form_id": "wells_fargo_financial_statement",
+  "form_name": "Wells Fargo Financial Statement",
+  "bank": "Wells Fargo",
+  "version": "1.0",
+  "total_fields": 55,
+  "fields": [
+    {"name": "Statement Date", "type": "date", "required": true},
+    {"name": "Company Name", "type": "text", "required": true},
+    {"name": "Prepared By", "type": "text", "required": true},
+    {"name": "Cash and Equivalents", "type": "currency", "required": true},
+    {"name": "Accounts Receivable", "type": "currency", "required": true},
+    {"name": "Inventory", "type": "currency", "required": true},
+    {"name": "Other Current Assets", "type": "currency", "required": false},
+    {"name": "Total Current Assets", "type": "currency", "required": true},
+    {"name": "Fixed Assets", "type": "currency", "required": true},
+    {"name": "Accumulated Depreciation", "type": "currency", "required": true},
+    {"name": "Net Fixed Assets", "type": "currency", "required": true},
+    {"name": "Other Assets", "type": "currency", "required": false},
+    {"name": "Total Assets", "type": "currency", "required": true},
+    {"name": "Accounts Payable", "type": "currency", "required": true},
+    {"name": "Short Term Debt", "type": "currency", "required": true},
+    {"name": "Other Current Liabilities", "type": "currency", "required": false},
+    {"name": "Total Current Liabilities", "type": "currency", "required": true},
+    {"name": "Long Term Debt", "type": "currency", "required": true},
+    {"name": "Other Liabilities", "type": "currency", "required": false},
+    {"name": "Total Liabilities", "type": "currency", "required": true},
+    {"name": "Common Stock", "type": "currency", "required": true},
+    {"name": "Retained Earnings", "type": "currency", "required": true},
+    {"name": "Total Equity", "type": "currency", "required": true},
+    {"name": "Total Liabilities and Equity", "type": "currency", "required": true}
+  ]
+}

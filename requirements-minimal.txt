@@ -22,3 +22,9 @@ matplotlib>=3.7.0  # For Excel to image conversion
 # PDF form filling
 pypdf>=3.17.0  # For PDF manipulation
 PyPDFForm>=1.4.0  # For PDF form filling (import as: from PyPDFForm import PdfWrapper)
+
+# Table extraction (used in template extraction)
+tabula-py>=2.8.0  # For extracting tables from PDFs
+
+# Additional Excel support
+xlsxwriter>=3.1.0  # For advanced Excel writing capabilities

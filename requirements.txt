@@ -30,6 +30,12 @@ openpyxl==3.1.2
 XlsxWriter==3.1.9
 reportlab==4.0.7
 faker==20.1.0
+matplotlib==3.7.0  # For Excel to image conversion
+
+# PDF processing and form filling
+pypdf==3.17.0  # For PDF manipulation
+PyPDFForm==1.4.0  # For PDF form filling
+tabula-py==2.8.0  # For extracting tables from PDFs
 
 # API and web framework (if needed)
 fastapi==0.104.1

@@ -379,6 +379,9 @@ class TableExtractor(BaseExtractor):
         
         # Cache for extracted tables
         self.table_cache = {}
+        
+        # Add missing stats field
+        self.stats['fields_attempted'] = 0
     
     def supports_field(self, field_spec: FieldSpec) -> bool:
         """Check if this extractor can handle the given field."""

@@ -1,0 +1,36 @@
+{
+  "form_id": "live_oak_sba_application",
+  "form_name": "Live Oak SBA Application",
+  "bank": "Live Oak",
+  "version": "1.0",
+  "total_fields": 107,
+  "fields": [
+    {"name": "Business Legal Name", "type": "text", "required": true},
+    {"name": "DBA Name", "type": "text", "required": false},
+    {"name": "Federal Tax ID", "type": "text", "required": true},
+    {"name": "Business Phone", "type": "text", "required": true},
+    {"name": "Business Address", "type": "text", "required": true},
+    {"name": "City", "type": "text", "required": true},
+    {"name": "State", "type": "text", "required": true},
+    {"name": "Zip", "type": "text", "required": true},
+    {"name": "Date Business Established", "type": "date", "required": true},
+    {"name": "Number of Employees", "type": "number", "required": true},
+    {"name": "NAICS Code", "type": "text", "required": true},
+    {"name": "Annual Revenue", "type": "currency", "required": true},
+    {"name": "Loan Amount Requested", "type": "currency", "required": true},
+    {"name": "Loan Purpose", "type": "text", "required": true},
+    {"name": "Name", "type": "text", "required": true},
+    {"name": "Title", "type": "text", "required": true},
+    {"name": "Ownership Percentage", "type": "percentage", "required": true},
+    {"name": "Social Security Number", "type": "text", "required": true},
+    {"name": "Date of Birth", "type": "date", "required": true},
+    {"name": "Email Address", "type": "text", "required": true}
+  ],
+  "extraction_patterns": {
+    "anchors": [
+      {"pattern": "Business Legal Name", "field": "Business Legal Name"},
+      {"pattern": "Federal.*Tax.*ID|EIN", "field": "Federal Tax ID"},
+      {"pattern": "Social Security Number|SSN", "field": "Social Security Number"}
+    ]
+  }
+}
