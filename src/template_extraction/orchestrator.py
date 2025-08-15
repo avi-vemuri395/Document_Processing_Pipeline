@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from .registry import TemplateRegistry
-from .extractors import AcroFormExtractor, AnchorExtractor, CheckboxExtractor, DateExtractor
+from .extractors import AcroFormExtractor, AnchorExtractor, CheckboxExtractor, DateExtractor, TableExtractor
 from .extractors.base import ExtractionResult
 from .normalizers import FieldNormalizer
 from .models import FormSpec
@@ -43,6 +43,7 @@ class ExtractionOrchestrator:
             AcroFormExtractor(),  # Try AcroForm first (fastest)
             CheckboxExtractor(),  # Handle checkboxes/radio buttons
             DateExtractor(),      # Extract date fields
+            TableExtractor(),     # Extract financial tables
             AnchorExtractor(),    # Then try anchor-based
         ]
         

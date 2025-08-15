@@ -1,0 +1,519 @@
+{
+  "form_id": "wells_fargo_loan_app",
+  "version": "2025.01",
+  "form_title": "Wells Fargo Small Business Loan Application",
+  "fingerprint": {
+    "pages": 8,
+    "title_text": "Wells Fargo Small Business Loan Application"
+  },
+  "sections": [
+    "Business Information",
+    "Owner Information",
+    "Financial Information",
+    "Loan Details"
+  ],
+  "metadata": {
+    "bank": "Wells Fargo",
+    "type": "business_loan",
+    "created": "2025-01-14",
+    "author": "template_system"
+  },
+  "fields": [
+    {
+      "id": "business_legal_name",
+      "field_name": "Business Legal Name",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Business Legal Name", "Legal Business Name", "Company Name"],
+        "anchors": [
+          {"text": "Business Legal Name", "strategy": "right", "offset": 200},
+          {"text": "Legal Name", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "dba_name",
+      "field_name": "DBA/Trade Name",
+      "type": "text",
+      "required": false,
+      "extraction": {
+        "acroform": ["DBA Name", "Trade Name", "Doing Business As"],
+        "anchors": [
+          {"text": "DBA", "strategy": "right", "offset": 200},
+          {"text": "Trade Name", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "federal_tax_id",
+      "field_name": "Federal Tax ID Number",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Federal Tax ID", "EIN", "Tax ID Number"],
+        "anchors": [
+          {"text": "Federal Tax ID", "strategy": "right", "offset": 150},
+          {"text": "EIN", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "format": "##-#######"
+      }
+    },
+    {
+      "id": "business_phone",
+      "field_name": "Business Phone Number",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Business Phone", "Phone Number", "Business Telephone"],
+        "anchors": [
+          {"text": "Business Phone", "strategy": "right", "offset": 150},
+          {"text": "Phone", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "format": "(###) ###-####"
+      }
+    },
+    {
+      "id": "business_email",
+      "field_name": "Business Email Address",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Business Email", "Email Address", "E-mail"],
+        "anchors": [
+          {"text": "Email", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "business_address",
+      "field_name": "Business Street Address",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Business Address", "Street Address", "Business Location"],
+        "anchors": [
+          {"text": "Business Address", "strategy": "right", "offset": 250},
+          {"text": "Street Address", "strategy": "below", "offset": 50}
+        ]
+      }
+    },
+    {
+      "id": "business_city",
+      "field_name": "City",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["City", "Business City"],
+        "anchors": [
+          {"text": "City", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "business_state",
+      "field_name": "State",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["State", "Business State", "ST"],
+        "anchors": [
+          {"text": "State", "strategy": "right", "offset": 100}
+        ]
+      }
+    },
+    {
+      "id": "business_zip",
+      "field_name": "ZIP Code",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["ZIP", "Zip Code", "Postal Code"],
+        "anchors": [
+          {"text": "ZIP", "strategy": "right", "offset": 100}
+        ]
+      }
+    },
+    {
+      "id": "date_established",
+      "field_name": "Date Business Established",
+      "type": "date",
+      "required": true,
+      "extraction": {
+        "acroform": ["Date Established", "Established Date", "Business Start Date"],
+        "anchors": [
+          {"text": "Date Established", "strategy": "right", "offset": 150},
+          {"text": "Established", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      }
+    },
+    {
+      "id": "business_type",
+      "field_name": "Type of Business Entity",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Business Type", "Entity Type", "Legal Structure"],
+        "anchors": [
+          {"text": "Type of Business", "strategy": "right", "offset": 200},
+          {"text": "Entity Type", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "corporation",
+      "field_name": "Corporation",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Corporation", "Corp"]
+      }
+    },
+    {
+      "id": "llc",
+      "field_name": "Limited Liability Company",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["LLC", "Limited Liability Company", "L.L.C."]
+      }
+    },
+    {
+      "id": "partnership",
+      "field_name": "Partnership",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Partnership", "General Partnership", "Limited Partnership"]
+      }
+    },
+    {
+      "id": "sole_proprietor",
+      "field_name": "Sole Proprietorship",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Sole Proprietorship", "Sole Proprietor", "Individual"]
+      }
+    },
+    {
+      "id": "loan_amount_requested",
+      "field_name": "Loan Amount Requested",
+      "type": "money",
+      "required": true,
+      "extraction": {
+        "acroform": ["Loan Amount", "Amount Requested", "Requested Amount"],
+        "anchors": [
+          {"text": "Loan Amount", "strategy": "right", "offset": 200},
+          {"text": "Amount Requested", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "loan_purpose",
+      "field_name": "Purpose of Loan",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Loan Purpose", "Purpose", "Use of Funds"],
+        "anchors": [
+          {"text": "Purpose of Loan", "strategy": "right", "offset": 300},
+          {"text": "Use of Funds", "strategy": "below", "offset": 100}
+        ]
+      }
+    },
+    {
+      "id": "annual_revenue",
+      "field_name": "Annual Business Revenue",
+      "type": "money",
+      "required": true,
+      "extraction": {
+        "acroform": ["Annual Revenue", "Gross Revenue", "Annual Sales"],
+        "anchors": [
+          {"text": "Annual Revenue", "strategy": "right", "offset": 200},
+          {"text": "Annual Sales", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "net_income",
+      "field_name": "Net Income",
+      "type": "money",
+      "required": false,
+      "extraction": {
+        "acroform": ["Net Income", "Net Profit", "Annual Net Income"],
+        "anchors": [
+          {"text": "Net Income", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "number_employees",
+      "field_name": "Number of Employees",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Number of Employees", "Employee Count", "Total Employees"],
+        "anchors": [
+          {"text": "Number of Employees", "strategy": "right", "offset": 150},
+          {"text": "Employees", "strategy": "right", "offset": 100}
+        ]
+      }
+    },
+    {
+      "id": "owner_name",
+      "field_name": "Primary Owner Name",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Owner Name", "Primary Owner", "Principal Name"],
+        "anchors": [
+          {"text": "Owner Name", "strategy": "right", "offset": 200},
+          {"text": "Primary Owner", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "owner_ssn",
+      "field_name": "Owner Social Security Number",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Owner SSN", "Social Security Number", "SSN"],
+        "anchors": [
+          {"text": "Social Security", "strategy": "right", "offset": 150},
+          {"text": "SSN", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "format": "###-##-####"
+      }
+    },
+    {
+      "id": "owner_dob",
+      "field_name": "Owner Date of Birth",
+      "type": "date",
+      "required": true,
+      "extraction": {
+        "acroform": ["Date of Birth", "DOB", "Birth Date"],
+        "anchors": [
+          {"text": "Date of Birth", "strategy": "right", "offset": 150},
+          {"text": "DOB", "strategy": "right", "offset": 100}
+        ]
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      }
+    },
+    {
+      "id": "ownership_percentage",
+      "field_name": "Ownership Percentage",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Ownership %", "Ownership Percentage", "% Owned"],
+        "anchors": [
+          {"text": "Ownership", "strategy": "right", "offset": 150},
+          {"text": "% Owned", "strategy": "right", "offset": 100}
+        ]
+      }
+    },
+    {
+      "id": "business_checking",
+      "field_name": "Business Checking Account",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Business Checking", "Checking Account"]
+      }
+    },
+    {
+      "id": "business_savings",
+      "field_name": "Business Savings Account",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Business Savings", "Savings Account"]
+      }
+    },
+    {
+      "id": "existing_wells_customer",
+      "field_name": "Existing Wells Fargo Customer",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Existing Customer", "Current Customer", "Wells Fargo Customer"]
+      }
+    },
+    {
+      "id": "total_assets",
+      "field_name": "Total Business Assets",
+      "type": "money",
+      "required": false,
+      "extraction": {
+        "acroform": ["Total Assets", "Business Assets"],
+        "anchors": [
+          {"text": "Total Assets", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "total_liabilities",
+      "field_name": "Total Business Liabilities",
+      "type": "money",
+      "required": false,
+      "extraction": {
+        "acroform": ["Total Liabilities", "Business Liabilities"],
+        "anchors": [
+          {"text": "Total Liabilities", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "total_debt",
+      "field_name": "Total Outstanding Debt",
+      "type": "money",
+      "required": false,
+      "extraction": {
+        "anchors": [
+          {"text": "Total Debt", "strategy": "right", "offset": 200},
+          {"text": "Outstanding Debt", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "debt_count",
+      "field_name": "Number of Outstanding Debts",
+      "type": "text",
+      "required": false,
+      "extraction": {
+        "anchors": [
+          {"text": "Total Debt", "strategy": "right", "offset": 200},
+          {"text": "Outstanding Debt", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "collateral_available",
+      "field_name": "Collateral Available",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Collateral Available", "Collateral", "Security"]
+      }
+    },
+    {
+      "id": "collateral_description",
+      "field_name": "Description of Collateral",
+      "type": "text",
+      "required": false,
+      "extraction": {
+        "acroform": ["Collateral Description", "Describe Collateral"],
+        "anchors": [
+          {"text": "Collateral", "strategy": "below", "offset": 100},
+          {"text": "Description", "strategy": "right", "offset": 200}
+        ]
+      }
+    },
+    {
+      "id": "industry_naics",
+      "field_name": "NAICS Code",
+      "type": "text",
+      "required": false,
+      "extraction": {
+        "acroform": ["NAICS Code", "NAICS", "Industry Code"],
+        "anchors": [
+          {"text": "NAICS", "strategy": "right", "offset": 150}
+        ]
+      }
+    },
+    {
+      "id": "franchise",
+      "field_name": "Franchise Business",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Franchise", "Franchisee"]
+      }
+    },
+    {
+      "id": "veteran_owned",
+      "field_name": "Veteran-Owned Business",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Veteran-Owned", "Veteran Owned", "Veteran"]
+      }
+    },
+    {
+      "id": "woman_owned",
+      "field_name": "Woman-Owned Business",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Woman-Owned", "Woman Owned", "Female Owned"]
+      }
+    },
+    {
+      "id": "minority_owned",
+      "field_name": "Minority-Owned Business",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Minority-Owned", "Minority Owned", "Minority"]
+      }
+    },
+    {
+      "id": "bankruptcy_history",
+      "field_name": "Previous Bankruptcy",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Bankruptcy", "Previous Bankruptcy", "Filed Bankruptcy"]
+      }
+    },
+    {
+      "id": "criminal_history",
+      "field_name": "Criminal History",
+      "type": "checkbox",
+      "required": false,
+      "extraction": {
+        "checkboxes": ["Criminal History", "Criminal Record", "Convicted"]
+      }
+    },
+    {
+      "id": "application_date",
+      "field_name": "Application Date",
+      "type": "date",
+      "required": true,
+      "extraction": {
+        "acroform": ["Application Date", "Date", "Submission Date"],
+        "anchors": [
+          {"text": "Date", "strategy": "right", "offset": 150}
+        ]
+      },
+      "normalize": {
+        "format": "MM/DD/YYYY"
+      }
+    },
+    {
+      "id": "signature",
+      "field_name": "Authorized Signature",
+      "type": "text",
+      "required": true,
+      "extraction": {
+        "acroform": ["Signature", "Authorized Signature", "Sign Here"],
+        "anchors": [
+          {"text": "Signature", "strategy": "right", "offset": 300}
+        ]
+      }
+    }
+  ]
+}

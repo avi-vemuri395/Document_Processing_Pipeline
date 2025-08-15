@@ -7,6 +7,7 @@ from .acroform import AcroFormExtractor
 from .anchor import AnchorExtractor
 from .checkbox import CheckboxExtractor
 from .date import DateExtractor
+from .table import TableExtractor
 
 __all__ = [
     'BaseExtractor',
@@ -15,4 +16,5 @@ __all__ = [
     'AnchorExtractor',
     'CheckboxExtractor',
     'DateExtractor',
+    'TableExtractor',
 ]
