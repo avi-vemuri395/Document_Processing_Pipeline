@@ -24,6 +24,7 @@ except ImportError:
 
 from ..core.universal_preprocessor import UniversalPreprocessor
 from .files_client import FilesAPIClient  # TEST: Files API integration
+from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid Excel extraction
 
 
 class BenchmarkExtractor:
@@ -56,6 +57,9 @@ class BenchmarkExtractor:
         # TEST: Files API integration
         self.use_files_api = use_files_api or os.getenv("USE_FILES_API", "false").lower() == "true"
         self.files_client = FilesAPIClient(api_key=api_key) if self.use_files_api else None
+        
+        # Hybrid Excel extractor for superior Excel processing
+        self.excel_extractor = HybridExcelExtractor(api_key=api_key)
     
     async def extract_all(
         self, 
@@ -84,63 +88,151 @@ class BenchmarkExtractor:
         total_file_size = sum(Path(f).stat().st_size for f in file_paths if Path(f).exists())
         print(f"📏 Total file size: {total_file_size / 1024 / 1024:.2f} MB")
         
-        # Convert all documents to images
+        # Separate Excel files from other documents
+        excel_files = []
+        other_files = []
+        
+        for file_path in file_paths:
+            file_path = Path(file_path)
+            if file_path.suffix.lower() in ['.xlsx', '.xls']:
+                excel_files.append(file_path)
+            else:
+                other_files.append(file_path)
+        
+        if excel_files:
+            print(f"\n📊 Found {len(excel_files)} Excel file(s) - will use hybrid extraction")
+        if other_files:
+            print(f"📄 Found {len(other_files)} other document(s) - will use image extraction")
+        
+        # Initialize results container
+        all_results = {}
+        
+        # Process Excel files with hybrid extractor (pandas-first approach)
+        if excel_files:
+            print("\n" + "="*50)
+            print("EXCEL FILE PROCESSING (HYBRID EXTRACTION)")
+            print("="*50)
+            
+            for excel_file in excel_files:
+                try:
+                    print(f"\n📈 Processing Excel: {excel_file.name}")
+                    excel_result = await self.excel_extractor.extract(excel_file)
+                    
+                    # Convert hybrid result to standard format
+                    all_results[str(excel_file)] = {
+                        'document_type': excel_result.document_type,
+                        'confidence': excel_result.confidence,
+                        'extraction_method': excel_result.extraction_method,
+                        'field_count': excel_result.field_count,
+                        'data': excel_result.structured_data,
+                        'api_cost': excel_result.api_cost_estimate
+                    }
+                    
+                    print(f"  ✅ Extracted {excel_result.field_count} fields")
+                    print(f"  📊 Method: {excel_result.extraction_method}")
+                    print(f"  🎯 Confidence: {excel_result.confidence:.1%}")
+                    
+                except Exception as e:
+                    print(f"  ❌ Failed to process {excel_file.name}: {e}")
+                    all_results[str(excel_file)] = {"error": str(e)}
+        
+        # Convert other documents to images for LLM processing
         all_images = []
         total_pages = 0
-        for file_path in file_paths:
-            try:
-                file_size = Path(file_path).stat().st_size / 1024 / 1024  # MB
-                print(f"\n  📄 Processing: {Path(file_path).name} ({file_size:.2f} MB)")
-                
-                processed = self.preprocessor.preprocess_any_document(file_path)
-                all_images.extend(processed.images)
-                
-                # Track dimensions
-                for idx, img in enumerate(processed.images):
-                    print(f"     • Image {idx+1}: {img.width}x{img.height} pixels")
-                    if img.width > 2000 or img.height > 2000:
-                        print(f"     ⚠️  WARNING: Image exceeds 2000px limit!")
-                
-                print(f"  ✅ Generated {len(processed.images)} images")
-                total_pages += len(processed.images)
-                
-            except Exception as e:
-                print(f"  ❌ Failed to process {Path(file_path).name}: {e}")
         
-        print(f"\n📊 PREPROCESSING SUMMARY:")
-        print(f"  • Total images created: {len(all_images)}")
-        print(f"  • Average images per document: {len(all_images)/len(file_paths):.1f}")
+        if other_files:
+            print("\n" + "="*50)
+            print("NON-EXCEL FILE PROCESSING (IMAGE EXTRACTION)")
+            print("="*50)
+            
+            for file_path in other_files:
+                try:
+                    file_size = Path(file_path).stat().st_size / 1024 / 1024  # MB
+                    print(f"\n  📄 Processing: {Path(file_path).name} ({file_size:.2f} MB)")
+                    
+                    processed = self.preprocessor.preprocess_any_document(file_path)
+                    all_images.extend(processed.images)
+                    
+                    # Track dimensions
+                    for idx, img in enumerate(processed.images):
+                        print(f"     • Image {idx+1}: {img.width}x{img.height} pixels")
+                        if img.width > 2000 or img.height > 2000:
+                            print(f"     ⚠️  WARNING: Image exceeds 2000px limit!")
+                    
+                    print(f"  ✅ Generated {len(processed.images)} images")
+                    total_pages += len(processed.images)
+                    
+                except Exception as e:
+                    print(f"  ❌ Failed to process {Path(file_path).name}: {e}")
         
-        if not all_images:
+        # Process images if we have any
+        if all_images:
+            print(f"\n📊 IMAGE PREPROCESSING SUMMARY:")
+            print(f"  • Total images created: {len(all_images)}")
+            print(f"  • Average images per document: {len(all_images)/len(other_files):.1f}")
+        elif not excel_files:
             return {"error": "No documents could be processed"}
         
-        # Choose extraction method
-        print(f"\n🔧 EXTRACTION METHOD:")
-        if self.use_files_api:
-            print("  • Mode: Files API (Native PDF)")
-            print("  • Expected behavior: Higher accuracy, MORE tokens")
-            result = await self._extract_with_files_api(file_paths)
+        # Process non-Excel files with image extraction if we have any
+        if all_images:
+            print(f"\n🔧 EXTRACTION METHOD FOR NON-EXCEL FILES:")
+            if self.use_files_api:
+                print("  • Mode: Files API (Native PDF)")
+                print("  • Expected behavior: Higher accuracy, MORE tokens")
+                image_result = await self._extract_with_files_api(other_files)
+            else:
+                print("  • Mode: Image-based (Base64)")
+                print("  • Expected behavior: Good accuracy, FEWER tokens")
+                estimated_tokens = len(all_images) * 1500  # Rough estimate
+                print(f"  • Estimated tokens: ~{estimated_tokens:,}")
+                image_result = await self._extract_from_images(all_images)
+            
+            # Add image results to all_results
+            if image_result:
+                all_results['image_extraction'] = image_result
+        
+        # Merge all results into final output
+        result = {}
+        
+        # Clean approach: Return actual extraction results
+        if excel_files and not other_files:
+            # Return Excel results directly
+            result = all_results
+            
+        # If we only have non-Excel files, return image extraction results
+        elif other_files and not excel_files:
+            result = all_results.get('image_extraction', {})
+            
+        # If we have both, combine them
         else:
-            print("  • Mode: Image-based (Base64)")
-            print("  • Expected behavior: Good accuracy, FEWER tokens")
-            estimated_tokens = len(all_images) * 1500  # Rough estimate
-            print(f"  • Estimated tokens: ~{estimated_tokens:,}")
-            result = await self._extract_from_images(all_images)
+            # Combine both types of results
+            result = {
+                'excel_files': {k: v for k, v in all_results.items() if k != 'image_extraction'},
+                'document_files': all_results.get('image_extraction', {})
+            }
         
         # Add metadata
         processing_time = time.time() - start_time
         result['_metadata'] = {
             'processing_time': processing_time,
             'documents_processed': len(file_paths),
+            'excel_files_processed': len(excel_files),
+            'other_files_processed': len(other_files),
             'total_images': len(all_images),
             'model': self.model,
             'files_api_used': self.use_files_api,
-            'total_file_size_mb': total_file_size / 1024 / 1024
+            'total_file_size_mb': total_file_size / 1024 / 1024,
+            'extraction_methods': {
+                'excel': 'hybrid_pandas_first',
+                'other': 'image_llm' if all_images else 'none'
+            }
         }
         
         print(f"\n✅ EXTRACTION COMPLETE:")
         print(f"  • Processing time: {processing_time:.2f} seconds")
         print(f"  • Rate: {len(file_paths)/processing_time:.2f} docs/second")
+        print(f"  • Excel files: {len(excel_files)} (hybrid extraction)")
+        print(f"  • Other files: {len(other_files)} (image extraction)")
         print("="*70 + "\n")
         
         return result

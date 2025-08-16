@@ -20,13 +20,8 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
-try:
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as patches
-    EXCEL_AVAILABLE = True
-except ImportError:
-    EXCEL_AVAILABLE = False
+# Excel processing moved to HybridExcelExtractor
+# UniversalPreprocessor now rejects Excel files with clear error message
 
 
 @dataclass
@@ -98,7 +93,11 @@ class UniversalPreprocessor:
         if extension == '.pdf':
             return self._pdf_to_images(file_path)
         elif extension in ['.xlsx', '.xls']:
-            return self._excel_to_images(file_path)
+            # Excel files should use HybridExcelExtractor, not image conversion
+            raise ValueError(
+                f"Excel files should be processed with HybridExcelExtractor, not UniversalPreprocessor. "
+                f"File: {file_path}"
+            )
         elif extension in ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']:
             return [Image.open(file_path)]
         else:
@@ -128,95 +127,6 @@ class UniversalPreprocessor:
         
         return images
     
-    def _excel_to_images(self, excel_path: Path) -> List[Image.Image]:
-        """Convert Excel to images - works for any spreadsheet layout."""
-        
-        if not EXCEL_AVAILABLE:
-            raise ImportError("pandas and matplotlib required for Excel processing")
-        
-        images = []
-        
-        try:
-            # Read all sheets - no assumptions about structure
-            excel_file = pd.ExcelFile(excel_path)
-            
-            for sheet_name in excel_file.sheet_names[:5]:  # Limit to 5 sheets
-                try:
-                    # Read with minimal assumptions
-                    df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
-                    
-                    # Skip empty sheets
-                    if df.empty or df.shape[0] < 2:
-                        continue
-                    
-                    # Create visual representation
-                    img = self._dataframe_to_image(df, sheet_name)
-                    if img:
-                        images.append(img)
-                        
-                except Exception as e:
-                    print(f"  Warning: Could not process sheet '{sheet_name}': {e}")
-                    continue
-        
-        except Exception as e:
-            print(f"  Error processing Excel file: {e}")
-            # Fallback: try to convert whole file to image
-            return self._create_error_image(f"Excel processing failed: {e}")
-        
-        return images if images else self._create_error_image("No valid Excel sheets found")
-    
-    def _dataframe_to_image(self, df: pd.DataFrame, title: str = "") -> Optional[Image.Image]:
-        """Convert DataFrame to image with no assumptions about content."""
-        
-        try:
-            # Calculate figure size based on data
-            rows, cols = df.shape
-            fig_width = max(8, min(cols * 1.5, 20))
-            fig_height = max(6, min(rows * 0.4, 15))
-            
-            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-            ax.axis('tight')
-            ax.axis('off')
-            
-            # Add title if provided
-            if title:
-                fig.suptitle(title, fontsize=14, y=0.98)
-            
-            # Create table - handle any content
-            table_data = df.astype(str).values
-            col_labels = [f"Col_{i}" for i in range(cols)]  # Generic column names
-            
-            table = ax.table(
-                cellText=table_data,
-                colLabels=col_labels,
-                cellLoc='center',
-                loc='center',
-                colWidths=[0.15] * cols
-            )
-            
-            # Style for readability
-            table.auto_set_font_size(False)
-            table.set_fontsize(9)
-            table.scale(1.2, 1.5)
-            
-            # Make header bold
-            for i in range(cols):
-                table[(0, i)].set_facecolor('#40466e')
-                table[(0, i)].set_text_props(weight='bold', color='white')
-            
-            # Save to image
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format='PNG', dpi=150, bbox_inches='tight', 
-                       facecolor='white', edgecolor='none')
-            plt.close()
-            
-            buffer.seek(0)
-            return Image.open(buffer)
-            
-        except Exception as e:
-            print(f"  Warning: DataFrame to image conversion failed: {e}")
-            plt.close()
-            return None
     
     def _text_file_to_image(self, file_path: Path) -> List[Image.Image]:
         """Convert text file to image as fallback."""

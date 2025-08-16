@@ -127,13 +127,11 @@ class ComprehensiveProcessor:
         source_document: str
     ) -> Dict[str, Any]:
         """
-        Map Claude's extraction structure to pipeline categories.
+        Map extraction results to pipeline categories.
         
-        Claude returns structured data with keys like:
-        - personal: primary_applicant, co_applicants
-        - addresses: current_residence, business_address, etc.
-        - business: primary_business, affiliated_businesses
-        - financials: balance_sheet, income_statement, etc.
+        Handles two formats:
+        1. PDF/Image extraction: Has keys like personal, addresses, business, financials
+        2. Excel extraction: Has file paths as keys with nested data structure
         
         Pipeline expects:
         - personal_info: personal data + addresses
@@ -160,67 +158,102 @@ class ComprehensiveProcessor:
             "metadata": {
                 "source_document": source_document,
                 "extraction_timestamp": datetime.now().isoformat(),
-                "extraction_method": "comprehensive_llm"
+                "extraction_method": "unknown"  # Will be updated based on actual method
             }
         }
         
-        # Direct mapping from Claude structure to pipeline structure
-        # This preserves ALL the extracted data instead of losing it
+        # Check if this is Excel extraction format (has file paths as keys)
+        is_excel_format = False
+        for key in raw_data.keys():
+            if key not in ['_metadata', 'error'] and '/' in str(key):
+                is_excel_format = True
+                break
         
-        # Map personal data
-        if "personal" in raw_data and raw_data["personal"]:
-            structured["personal_info"]["personal"] = raw_data["personal"]
-        
-        # Map addresses (combine with personal_info)
-        if "addresses" in raw_data and raw_data["addresses"]:
-            structured["personal_info"]["addresses"] = raw_data["addresses"]
-        
-        # Map business information
-        if "business" in raw_data and raw_data["business"]:
-            structured["business_info"]["business"] = raw_data["business"]
-        
-        # Map financial data
-        if "financials" in raw_data and raw_data["financials"]:
-            structured["financial_data"] = raw_data["financials"]
-        
-        # Map tax information
-        if "tax_information" in raw_data and raw_data["tax_information"]:
-            structured["tax_data"] = raw_data["tax_information"]
-        elif "tax_data" in raw_data and raw_data["tax_data"]:
-            structured["tax_data"] = raw_data["tax_data"]
-        
-        # Map debt schedules
-        if "debt_details" in raw_data and raw_data["debt_details"]:
-            structured["debt_schedules"] = raw_data["debt_details"]
-        elif "liabilities" in raw_data and raw_data["liabilities"]:
-            structured["debt_schedules"]["liabilities"] = raw_data["liabilities"]
-        
-        # Map checkboxes and questions (often important for forms)
-        if "checkboxes_and_questions" in raw_data and raw_data["checkboxes_and_questions"]:
-            structured["other_data"]["checkboxes_and_questions"] = raw_data["checkboxes_and_questions"]
-        
-        # Store any other top-level keys in other_data
-        # This ensures we don't lose any extracted information
-        skip_keys = {
-            "personal", "addresses", "business", "financials", 
-            "tax_information", "tax_data", "debt_details", "liabilities",
-            "checkboxes_and_questions", "metadata", "_metadata",
-            "_extraction_failed", "error", "raw_text"
-        }
-        
-        for key, value in raw_data.items():
-            if key not in skip_keys and value:
-                # Check if it's substantial data (not empty dict/list/string)
-                if isinstance(value, dict) and value:
-                    structured["other_data"][key] = value
-                elif isinstance(value, list) and value:
-                    structured["other_data"][key] = value
-                elif isinstance(value, (str, int, float, bool)) and value != "":
-                    structured["other_data"][key] = value
-        
-        # Add extraction metadata if present
-        if "_metadata" in raw_data:
-            structured["metadata"]["extraction_metadata"] = raw_data["_metadata"]
+        if is_excel_format:
+            # Handle Excel extraction format
+            for file_path, excel_data in raw_data.items():
+                if file_path == '_metadata':
+                    structured["metadata"]["extraction_metadata"] = excel_data
+                    continue
+                    
+                if isinstance(excel_data, dict):
+                    # Set extraction method from Excel data
+                    if 'extraction_method' in excel_data:
+                        structured["metadata"]["extraction_method"] = excel_data['extraction_method']
+                    
+                    # Store document type and confidence
+                    if 'document_type' in excel_data:
+                        structured["metadata"]["document_type"] = excel_data['document_type']
+                    if 'confidence' in excel_data:
+                        structured["metadata"]["confidence"] = excel_data['confidence']
+                    
+                    # Map financial data from Excel
+                    if 'data' in excel_data and isinstance(excel_data['data'], dict):
+                        data = excel_data['data']
+                        
+                        if 'financial_data' in data:
+                            structured["financial_data"].update(data['financial_data'])
+                        
+                        # Store any metadata from Excel
+                        if 'metadata' in data:
+                            structured["other_data"]["excel_metadata"] = data['metadata']
+        else:
+            # Handle standard PDF/image extraction format
+            structured["metadata"]["extraction_method"] = "comprehensive_llm"
+            
+            # Map personal data
+            if "personal" in raw_data and raw_data["personal"]:
+                structured["personal_info"]["personal"] = raw_data["personal"]
+            
+            # Map addresses (combine with personal_info)
+            if "addresses" in raw_data and raw_data["addresses"]:
+                structured["personal_info"]["addresses"] = raw_data["addresses"]
+            
+            # Map business information
+            if "business" in raw_data and raw_data["business"]:
+                structured["business_info"]["business"] = raw_data["business"]
+            
+            # Map financial data
+            if "financials" in raw_data and raw_data["financials"]:
+                structured["financial_data"] = raw_data["financials"]
+            
+            # Map tax information
+            if "tax_information" in raw_data and raw_data["tax_information"]:
+                structured["tax_data"] = raw_data["tax_information"]
+            elif "tax_data" in raw_data and raw_data["tax_data"]:
+                structured["tax_data"] = raw_data["tax_data"]
+            
+            # Map debt schedules
+            if "debt_details" in raw_data and raw_data["debt_details"]:
+                structured["debt_schedules"] = raw_data["debt_details"]
+            elif "liabilities" in raw_data and raw_data["liabilities"]:
+                structured["debt_schedules"]["liabilities"] = raw_data["liabilities"]
+            
+            # Map checkboxes and questions (often important for forms)
+            if "checkboxes_and_questions" in raw_data and raw_data["checkboxes_and_questions"]:
+                structured["other_data"]["checkboxes_and_questions"] = raw_data["checkboxes_and_questions"]
+            
+            # Store any other top-level keys in other_data
+            skip_keys = {
+                "personal", "addresses", "business", "financials", 
+                "tax_information", "tax_data", "debt_details", "liabilities",
+                "checkboxes_and_questions", "metadata", "_metadata",
+                "_extraction_failed", "error", "raw_text"
+            }
+            
+            for key, value in raw_data.items():
+                if key not in skip_keys and value:
+                    # Check if it's substantial data (not empty dict/list/string)
+                    if isinstance(value, dict) and value:
+                        structured["other_data"][key] = value
+                    elif isinstance(value, list) and value:
+                        structured["other_data"][key] = value
+                    elif isinstance(value, (str, int, float, bool)) and value != "":
+                        structured["other_data"][key] = value
+            
+            # Add extraction metadata if present
+            if "_metadata" in raw_data:
+                structured["metadata"]["extraction_metadata"] = raw_data["_metadata"]
         
         return structured
     
