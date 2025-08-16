@@ -229,11 +229,20 @@ class FormMappingService:
             print(f"    📝 Mapping to {form_type}...")
             
             # Get form specification
-            form_spec = self.form_specs.get(spec_file.replace('.json', ''))
+            spec_key = spec_file.replace('.json', '')
+            form_spec = self.form_specs.get(spec_key)
+            
+            print(f"      🔍 Looking for spec key: '{spec_key}'")
+            print(f"      📋 Available spec keys: {list(self.form_specs.keys())}")
+            print(f"      ✅ Found spec: {form_spec is not None}")
             
             if not form_spec:
                 print(f"      ⚠️  Form spec not found: {spec_file}")
+                print(f"      🔧 DEBUG: Tried key '{spec_key}' in {list(self.form_specs.keys())}")
                 continue
+            else:
+                field_count = len(form_spec.get('fields', []))
+                print(f"      ✅ Using spec with {field_count} fields")
             
             # Map master data to form fields with confidence scoring
             mapping_result = self._intelligent_field_mapping_with_confidence(
@@ -308,8 +317,22 @@ class FormMappingService:
         
         flat_master = self._deep_flatten(master_data)
         
+        print(f"        🗂️  DEBUG: Flattened master data contains {len(flat_master)} keys")
+        if len(flat_master) > 0:
+            sample_keys = list(flat_master.keys())[:10]
+            print(f"        📋 Sample flattened keys: {sample_keys}")
+            if len(flat_master) > 10:
+                print(f"        📋 ... and {len(flat_master) - 10} more keys")
+        
+        form_fields = form_spec.get('fields', [])
+        print(f"        🎯 Form expects {len(form_fields)} fields")
+        
+        matched_count = 0
+        total_fields = len(form_fields)
+        
         for field in form_spec.get('fields', []):
-            field_name = field.get('name', '')  # CRITICAL FIX: Changed from 'field_name' to 'name'
+            # Handle both 'name' and 'field_name' properties for compatibility with all form specs
+            field_name = field.get('name') or field.get('field_name', '')
             field_id = field.get('id', field_name)
             
             if not field_name:
@@ -321,6 +344,12 @@ class FormMappingService:
             if value and not isinstance(value, (dict, list)):
                 mapped_data[field_id] = value
                 confidence_scores[field_id] = confidence
+                matched_count += 1
+                print(f"          ✅ MATCHED '{field_name}' → '{value}' (confidence: {confidence:.2f})")
+            else:
+                print(f"          ❌ NO MATCH for '{field_name}' (id: '{field_id}')")
+        
+        print(f"        📊 Field mapping summary: {matched_count}/{total_fields} fields matched")
         
         # Calculate overall confidence
         overall_confidence = statistics.mean(confidence_scores.values()) if confidence_scores else 0.0
@@ -364,8 +393,8 @@ class FormMappingService:
         
         # Map each form field
         for field in form_spec.get('fields', []):
-            # CRITICAL FIX: Use 'name' from spec, not 'field_name'
-            field_name = field.get('name', '')
+            # Handle both 'name' and 'field_name' properties for compatibility with all form specs
+            field_name = field.get('name') or field.get('field_name', '')
             field_id = field.get('id', field_name)
             
             # Skip if no field name
@@ -455,25 +484,36 @@ class FormMappingService:
         flat_master: Dict[str, Any]
     ) -> Tuple[Any, float]:
         """Find field value with confidence score."""
+        print(f"            🔍 Searching for field: '{field_name}' (id: '{field_id}')")
+        
         # Direct exact match - highest confidence
         if field_id in flat_master:
+            print(f"            ✅ Direct match on field_id: {field_id}")
             return flat_master[field_id], 1.0
         if field_id.lower() in flat_master:
+            print(f"            ✅ Case-insensitive match on field_id: {field_id.lower()}")
             return flat_master[field_id.lower()], 0.95
         if field_name in flat_master:
+            print(f"            ✅ Direct match on field_name: {field_name}")
             return flat_master[field_name], 0.95
         if field_name.lower() in flat_master:
+            print(f"            ✅ Case-insensitive match on field_name: {field_name.lower()}")
             return flat_master[field_name.lower()], 0.9
         
         # Try intelligent matching with lower confidence
+        print(f"            🧠 Trying intelligent matching for field_id...")
         value = self._find_field_match(field_id, flat_master)
         if value:
+            print(f"            ✅ Intelligent match on field_id found: {value}")
             return value, 0.8
         
+        print(f"            🧠 Trying intelligent matching for field_name...")
         value = self._find_field_match(field_name, flat_master)
         if value:
+            print(f"            ✅ Intelligent match on field_name found: {value}")
             return value, 0.75
         
+        print(f"            ❌ No match found for '{field_name}'")
         # No match found
         return None, 0.0
     
@@ -582,13 +622,36 @@ class FormMappingService:
         specs = {}
         spec_dir = Path("templates/form_specs")
         
-        for bank_forms in self.BANK_FORMS.values():
+        print(f"\n  🔧 DEBUG: Loading form specifications from {spec_dir}")
+        print(f"  📂 Directory exists: {spec_dir.exists()}")
+        
+        if spec_dir.exists():
+            available_files = list(spec_dir.glob("*.json"))
+            print(f"  📄 Available spec files: {[f.name for f in available_files]}")
+        
+        for bank_name, bank_forms in self.BANK_FORMS.items():
+            print(f"\n  🏦 Processing {bank_name} forms:")
             for form_type, spec_file in bank_forms.items():
                 spec_path = spec_dir / spec_file
+                spec_key = spec_file.replace('.json', '')
+                
+                print(f"    📝 {form_type}: looking for '{spec_file}' → key '{spec_key}'")
+                print(f"      Path: {spec_path}")
+                print(f"      Exists: {spec_path.exists()}")
+                
                 if spec_path.exists():
                     with open(spec_path, 'r') as f:
-                        spec_key = spec_file.replace('.json', '')
-                        specs[spec_key] = json.load(f)
+                        spec_data = json.load(f)
+                        specs[spec_key] = spec_data
+                        field_count = len(spec_data.get('fields', []))
+                        print(f"      ✅ Loaded {field_count} fields")
+                else:
+                    print(f"      ❌ File not found!")
+        
+        print(f"\n  📋 Final loaded specs: {list(specs.keys())}")
+        total_specs = len(specs)
+        expected_specs = sum(len(forms) for forms in self.BANK_FORMS.values())
+        print(f"  📊 Loaded {total_specs}/{expected_specs} specifications")
         
         return specs
     
