@@ -50,7 +50,10 @@ class BenchmarkExtractor:
                 "3. Add ANTHROPIC_API_KEY to .env file"
             )
         
-        self.client = AsyncAnthropic(api_key=api_key)
+        # Store API key for lazy initialization
+        self.api_key = api_key
+        self._client = None  # Lazy initialization
+        
         self.preprocessor = UniversalPreprocessor()
         self.model = "claude-sonnet-4-20250514"
         
@@ -60,6 +63,13 @@ class BenchmarkExtractor:
         
         # Hybrid Excel extractor for superior Excel processing
         self.excel_extractor = HybridExcelExtractor(api_key=api_key)
+    
+    @property
+    def client(self):
+        """Lazy initialization of AsyncAnthropic client."""
+        if self._client is None:
+            self._client = AsyncAnthropic(api_key=self.api_key)
+        return self._client
     
     async def extract_all(
         self, 

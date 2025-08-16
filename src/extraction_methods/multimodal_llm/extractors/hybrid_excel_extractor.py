@@ -57,12 +57,19 @@ class HybridExcelExtractor:
     
     def __init__(self, api_key: Optional[str] = None):
         """Initialize hybrid extractor."""
-        self.llm_client = None
-        if ANTHROPIC_AVAILABLE and api_key:
-            self.llm_client = AsyncAnthropic(api_key=api_key)
+        # Store API key for lazy initialization
+        self.api_key = api_key
+        self._llm_client = None  # Lazy initialization
         
         # Financial patterns for structured extraction
         self.patterns = self._build_patterns()
+    
+    @property
+    def llm_client(self):
+        """Lazy initialization of AsyncAnthropic client."""
+        if self._llm_client is None and ANTHROPIC_AVAILABLE and self.api_key:
+            self._llm_client = AsyncAnthropic(api_key=self.api_key)
+        return self._llm_client
     
     def _build_patterns(self) -> Dict[str, List[re.Pattern]]:
         """Build comprehensive financial patterns."""

@@ -1,7 +1,6 @@
 """
 Multi-stage confidence scoring and aggregation system.
 Combines confidence from classification, extraction, and validation stages.
-REBUILT: Minimal working version to fix import hanging issue.
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -86,6 +85,50 @@ class ConfidenceAggregator:
         else:
             raise ValueError(f"Unknown aggregation method: {method}")
     
+    def calculate_field_confidence(
+        self,
+        field_name: str,
+        extracted_confidence: float,
+        context_scores: Optional[Dict[str, float]] = None
+    ) -> float:
+        """
+        Calculate confidence for a single field.
+        
+        Args:
+            field_name: Name of the field
+            extracted_confidence: Base extraction confidence
+            context_scores: Additional context-based scores
+            
+        Returns:
+            Field confidence score
+        """
+        scores = [
+            ConfidenceScore(
+                source=ConfidenceSource.EXTRACTION,
+                value=extracted_confidence,
+                weight=1.0
+            )
+        ]
+        
+        # Add context scores if available
+        if context_scores:
+            for context_name, score in context_scores.items():
+                scores.append(
+                    ConfidenceScore(
+                        source=ConfidenceSource.CONSISTENCY,
+                        value=score,
+                        weight=0.3,
+                        description=context_name
+                    )
+                )
+        
+        # Boost weight for critical fields
+        if field_name in self.critical_fields:
+            for score in scores:
+                score.weight *= 1.5
+        
+        return self.aggregate_scores(scores)
+    
     def calculate_document_confidence(
         self,
         classification_confidence: float,
@@ -162,6 +205,92 @@ class ConfidenceAggregator:
         }
         
         return overall, breakdown
+    
+    def validate_consistency(
+        self,
+        extracted_data: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """
+        Validate internal consistency of extracted data.
+        
+        Args:
+            extracted_data: Extracted field data
+            
+        Returns:
+            Dictionary of consistency check scores
+        """
+        consistency_scores = {}
+        
+        # Check if total assets equals sum of individual assets
+        if "totalAssets" in extracted_data:
+            asset_fields = [
+                "cashOnHand", "savingsAccount", "retirementAccount",
+                "accountAndNotesReceivable", "lifeInsuranceCashValue",
+                "stockAndBonds", "realEstate", "automobileValue",
+                "otherPersonalProperty", "otherAssets"
+            ]
+            
+            asset_sum = sum(
+                extracted_data.get(field, {}).get("value", 0)
+                for field in asset_fields
+                if field in extracted_data
+            )
+            
+            total_assets = extracted_data["totalAssets"].get("value", 0)
+            
+            if total_assets > 0:
+                diff_percent = abs(asset_sum - total_assets) / total_assets
+                consistency_scores["asset_sum_check"] = max(0, 1 - diff_percent)
+        
+        # Check if total liabilities equals sum
+        if "totalLiabilities" in extracted_data:
+            liability_fields = [
+                "accountsPayable", "notesPayableToBanks",
+                "installmentAccountAutoLoan", "installmentAccountOtherLoan",
+                "loanOnLifeInsurance", "mortgageOnRealEstate",
+                "unpaidTaxes", "otherLiabilities"
+            ]
+            
+            liability_sum = sum(
+                extracted_data.get(field, {}).get("value", 0)
+                for field in liability_fields
+                if field in extracted_data
+            )
+            
+            total_liabilities = extracted_data["totalLiabilities"].get("value", 0)
+            
+            if total_liabilities > 0:
+                diff_percent = abs(liability_sum - total_liabilities) / total_liabilities
+                consistency_scores["liability_sum_check"] = max(0, 1 - diff_percent)
+        
+        # Check net worth calculation
+        if all(k in extracted_data for k in ["totalAssets", "totalLiabilities", "netWorth"]):
+            assets = extracted_data["totalAssets"].get("value", 0)
+            liabilities = extracted_data["totalLiabilities"].get("value", 0)
+            stated_net_worth = extracted_data["netWorth"].get("value", 0)
+            calculated_net_worth = assets - liabilities
+            
+            if stated_net_worth > 0:
+                diff_percent = abs(calculated_net_worth - stated_net_worth) / stated_net_worth
+                consistency_scores["net_worth_check"] = max(0, 1 - diff_percent)
+        
+        # Check email format
+        if "email" in extracted_data:
+            email = extracted_data["email"].get("value", "")
+            if "@" in email and "." in email.split("@")[-1]:
+                consistency_scores["email_format"] = 1.0
+            else:
+                consistency_scores["email_format"] = 0.0
+        
+        # Check SSN format
+        if "ssn" in extracted_data:
+            ssn = extracted_data["ssn"].get("value", "")
+            if len(ssn.replace("-", "")) == 9:
+                consistency_scores["ssn_format"] = 1.0
+            else:
+                consistency_scores["ssn_format"] = 0.0
+        
+        return consistency_scores
     
     def get_review_recommendation(
         self,

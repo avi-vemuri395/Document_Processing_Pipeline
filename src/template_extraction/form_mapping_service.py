@@ -4,8 +4,9 @@ Maps master data from Part 1 to 9 different bank forms
 """
 
 import json
+import statistics
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 
 from ..extraction_methods.multimodal_llm.providers import (
@@ -55,6 +56,70 @@ class FormMappingService:
         self.form_specs = self._load_all_form_specifications()
         self.pdf_generator = PDFFormGenerator()
         self.output_base = Path("outputs/applications")
+        self._confidence_aggregator = None  # Lazy initialization for confidence aggregator
+    
+    @property
+    def confidence_aggregator(self):
+        """Load confidence aggregator with embedded implementation (bypassing import issue)."""
+        if self._confidence_aggregator is None:
+            # Embedded confidence aggregator to avoid problematic import
+            class EmbeddedConfidenceAggregator:
+                def __init__(self):
+                    self.critical_fields = [
+                        "firstName", "lastName", "totalAssets", "totalLiabilities",
+                        "businessName", "ein", "creditorName", "currentBalance"
+                    ]
+                
+                def get_review_recommendation(self, overall_confidence, field_confidences, validation_scores):
+                    needs_review = False
+                    review_reasons = []
+                    fields_to_review = []
+                    
+                    # Check overall confidence
+                    if overall_confidence < 0.85:
+                        needs_review = True
+                        review_reasons.append(f"Overall confidence ({overall_confidence:.2f}) below threshold")
+                    
+                    # Check critical fields
+                    for field in self.critical_fields:
+                        if field in field_confidences:
+                            if field_confidences[field] < 0.7:
+                                needs_review = True
+                                fields_to_review.append(field)
+                    
+                    if fields_to_review:
+                        review_reasons.append(f"Critical fields with low confidence: {', '.join(fields_to_review)}")
+                    
+                    # Check validation scores
+                    failed_checks = [
+                        check for check, score in validation_scores.items()
+                        if score < 0.8
+                    ] if validation_scores else []
+                    
+                    if failed_checks:
+                        needs_review = True
+                        review_reasons.append(f"Failed consistency checks: {', '.join(failed_checks)}")
+                    
+                    # Determine priority
+                    if overall_confidence < 0.5:
+                        priority = "high"
+                    elif overall_confidence < 0.7 or len(fields_to_review) > 3:
+                        priority = "medium"
+                    else:
+                        priority = "low"
+                    
+                    return {
+                        "needs_review": needs_review,
+                        "priority": priority,
+                        "reasons": review_reasons,
+                        "fields_to_review": fields_to_review,
+                        "overall_confidence": overall_confidence,
+                        "consistency_scores": validation_scores or {},
+                        "status": "embedded_implementation"
+                    }
+            
+            self._confidence_aggregator = EmbeddedConfidenceAggregator()
+        return self._confidence_aggregator
     
     def map_all_forms(self, application_id: str) -> Dict[str, Any]:
         """
@@ -170,11 +235,15 @@ class FormMappingService:
                 print(f"      ⚠️  Form spec not found: {spec_file}")
                 continue
             
-            # Map master data to form fields
-            mapped_data = self._intelligent_field_mapping(
+            # Map master data to form fields with confidence scoring
+            mapping_result = self._intelligent_field_mapping_with_confidence(
                 master_data,
                 form_spec
             )
+            
+            mapped_data = mapping_result['mapped_data']
+            confidence_scores = mapping_result['confidence_scores']
+            overall_confidence = mapping_result['overall_confidence']
             
             # Calculate coverage
             total_fields = len(form_spec.get('fields', []))
@@ -192,6 +261,11 @@ class FormMappingService:
                     "bank": bank_name,
                     "mapped_data": mapped_data,
                     "coverage": coverage,
+                    "confidence": {
+                        "overall": overall_confidence,
+                        "field_scores": confidence_scores,
+                        "needs_review": overall_confidence < 0.85
+                    },
                     "timestamp": datetime.now().isoformat()
                 }, f, indent=2)
             
@@ -212,13 +286,58 @@ class FormMappingService:
                 "mapped_fields": filled_fields,
                 "total_fields": total_fields,
                 "coverage": round(coverage, 1),
+                "confidence": round(overall_confidence, 3),
+                "needs_review": overall_confidence < 0.85,
                 "mapped_data_path": str(mapped_path),
                 "pdf_path": str(pdf_path) if pdf_path else None
             }
             
-            print(f"      ✅ Mapped {filled_fields}/{total_fields} fields ({coverage:.1f}% coverage)")
+            confidence_indicator = "🟢" if overall_confidence >= 0.85 else "🟡" if overall_confidence >= 0.7 else "🔴"
+            print(f"      ✅ Mapped {filled_fields}/{total_fields} fields ({coverage:.1f}% coverage) {confidence_indicator} Confidence: {overall_confidence:.1%}")
         
         return bank_results
+    
+    def _intelligent_field_mapping_with_confidence(
+        self,
+        master_data: Dict[str, Any],
+        form_spec: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Map fields with confidence scoring (Phase 1 enhancement)."""
+        mapped_data = {}
+        confidence_scores = {}
+        
+        flat_master = self._deep_flatten(master_data)
+        
+        for field in form_spec.get('fields', []):
+            field_name = field.get('name', '')  # CRITICAL FIX: Changed from 'field_name' to 'name'
+            field_id = field.get('id', field_name)
+            
+            if not field_name:
+                continue
+            
+            # Find value with confidence scoring
+            value, confidence = self._find_field_with_confidence(field_name, field_id, flat_master)
+            
+            if value and not isinstance(value, (dict, list)):
+                mapped_data[field_id] = value
+                confidence_scores[field_id] = confidence
+        
+        # Calculate overall confidence
+        overall_confidence = statistics.mean(confidence_scores.values()) if confidence_scores else 0.0
+        
+        # Get review recommendation using embedded confidence aggregator
+        review_rec = self.confidence_aggregator.get_review_recommendation(
+            overall_confidence,
+            confidence_scores,
+            {}
+        )
+        
+        return {
+            'mapped_data': mapped_data,
+            'confidence_scores': confidence_scores,
+            'overall_confidence': overall_confidence,
+            'review_recommendation': review_rec
+        }
     
     def _intelligent_field_mapping(
         self,
@@ -245,8 +364,8 @@ class FormMappingService:
         
         # Map each form field
         for field in form_spec.get('fields', []):
-            # Fix: Use 'field_name' from spec, not 'name'
-            field_name = field.get('field_name', '')
+            # CRITICAL FIX: Use 'name' from spec, not 'field_name'
+            field_name = field.get('name', '')
             field_id = field.get('id', field_name)
             
             # Skip if no field name
@@ -328,6 +447,35 @@ class FormMappingService:
                 return {parent_key: obj} if parent_key else {}
         
         return items
+    
+    def _find_field_with_confidence(
+        self,
+        field_name: str,
+        field_id: str,
+        flat_master: Dict[str, Any]
+    ) -> Tuple[Any, float]:
+        """Find field value with confidence score."""
+        # Direct exact match - highest confidence
+        if field_id in flat_master:
+            return flat_master[field_id], 1.0
+        if field_id.lower() in flat_master:
+            return flat_master[field_id.lower()], 0.95
+        if field_name in flat_master:
+            return flat_master[field_name], 0.95
+        if field_name.lower() in flat_master:
+            return flat_master[field_name.lower()], 0.9
+        
+        # Try intelligent matching with lower confidence
+        value = self._find_field_match(field_id, flat_master)
+        if value:
+            return value, 0.8
+        
+        value = self._find_field_match(field_name, flat_master)
+        if value:
+            return value, 0.75
+        
+        # No match found
+        return None, 0.0
     
     def _find_field_match(
         self, 

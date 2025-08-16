@@ -7,6 +7,15 @@ Tests the complete loan application lifecycle with all components:
 - Part 2b: Generate spreadsheets (SpreadsheetMappingService)
 - Incremental document processing with merging
 - Master JSON creation and updates
+
+KEY FEATURES VALIDATED:
+- Phase 1: Field mapping bug fix (uses 'name' not 'field_name')
+- Phase 1: Confidence scoring integration
+- Phase 2: Document classification (blueprint routing)
+- Phase 2: Enhanced metadata with classification
+- Lazy loading for performance
+
+This test should be updated when new key features are added.
 """
 
 import asyncio
@@ -405,7 +414,7 @@ class ComprehensiveEndToEndTest:
         return validation
     
     def validate_complete_application(self):
-        """Validate the complete application outputs."""
+        """Validate the complete application outputs including Phase 1 & 2 features."""
         print("\n" + "─"*70)
         print("  FINAL VALIDATION")
         print("─"*70)
@@ -419,27 +428,62 @@ class ComprehensiveEndToEndTest:
             "pdf_files": 0,
             "spreadsheet_files": 0,
             "expected_banks": ["live_oak", "huntington", "wells_fargo"],
-            "banks_found": []
+            "banks_found": [],
+            # Phase 1 & 2 Feature Validations
+            "phase1_confidence_scoring": False,
+            "phase2_classification": False,
+            "field_mapping_fix": False,
+            "classification_types": [],
+            "overall_confidence": 0.0
         }
         
-        # Check master JSON
+        # Check master JSON and validate Phase 1 & 2 features
         master_path = app_dir / "part1_document_processing" / "master_data.json"
         if master_path.exists():
             validations["master_json"] = True
+            
+            # Validate Phase 1 & 2 improvements
+            with open(master_path, 'r') as f:
+                master_data = json.load(f)
+            
+            metadata = master_data.get("metadata", {})
+            
+            # Phase 2: Document Classification
+            if "classification" in metadata:
+                validations["phase2_classification"] = True
+                classification = metadata["classification"]
+                if classification.get("document_type"):
+                    validations["classification_types"].append(classification["document_type"])
+            
+            # Phase 1: Confidence Scoring
+            if "confidence_analysis" in metadata:
+                validations["phase1_confidence_scoring"] = True
+                confidence = metadata["confidence_analysis"]
+                validations["overall_confidence"] = confidence.get("overall_confidence", 0.0)
         
         # Count extraction files
         extraction_dir = app_dir / "part1_document_processing" / "extractions"
         if extraction_dir.exists():
             validations["extraction_files"] = len(list(extraction_dir.glob("*.json")))
         
-        # Check form mappings
+        # Check form mappings and validate field mapping fix
         form_dir = app_dir / "part2_form_mapping" / "banks"
         if form_dir.exists():
             for bank_dir in form_dir.iterdir():
                 if bank_dir.is_dir():
                     validations["banks_found"].append(bank_dir.name)
-                    validations["form_mappings"] += len(list(bank_dir.glob("*_mapped.json")))
+                    json_mappings = list(bank_dir.glob("*_mapped.json"))
+                    validations["form_mappings"] += len(json_mappings)
                     validations["pdf_files"] += len(list(bank_dir.glob("*.pdf")))
+                    
+                    # Phase 1: Check if field mapping is working (should have good coverage)
+                    if json_mappings and not validations["field_mapping_fix"]:
+                        with open(json_mappings[0], 'r') as f:
+                            form_data = json.load(f)
+                            coverage = form_data.get("coverage", 0)
+                            # If coverage > 0, field mapping is working (bug is fixed)
+                            if coverage > 0:
+                                validations["field_mapping_fix"] = True
         
         # Check spreadsheets
         spreadsheet_dir = app_dir / "part2_spreadsheets"
@@ -459,6 +503,16 @@ class ComprehensiveEndToEndTest:
         print(f"    ✅ PDF files: {validations['pdf_files']}")
         print(f"    ✅ Spreadsheet files: {validations['spreadsheet_files']}")
         print(f"    ✅ Banks processed: {', '.join(validations['banks_found'])}")
+        
+        # Phase 1 & 2 Feature Validations
+        print("\n  Phase 1 & 2 Improvements:")
+        print(f"    {'✅' if validations['phase1_confidence_scoring'] else '❌'} Phase 1: Confidence Scoring")
+        if validations['phase1_confidence_scoring']:
+            print(f"      • Overall confidence: {validations['overall_confidence']:.1%}")
+        print(f"    {'✅' if validations['phase2_classification'] else '❌'} Phase 2: Document Classification")
+        if validations['phase2_classification'] and validations['classification_types']:
+            print(f"      • Document type: {validations['classification_types'][0]}")
+        print(f"    {'✅' if validations['field_mapping_fix'] else '❌'} Phase 1: Field Mapping Fix (coverage > 0)")
         
         print(f"\n  Extraction Quality Analysis:")
         print(f"    📄 Total documents: {quality_report['total_documents']}")
@@ -515,6 +569,13 @@ class ComprehensiveEndToEndTest:
         print(f"    ✅ Incremental Processing: Confirmed (documents added over time)")
         print(f"    ✅ Master JSON Merging: Confirmed (fields accumulated)")
         print(f"    ✅ Spreadsheet Generation: Confirmed (Excel files created)")
+        
+        # Key Features validation
+        validations = self.test_results.get("validations", {})
+        print("\n  KEY FEATURES VALIDATION:")
+        print(f"    {'✅' if validations.get('phase1_confidence_scoring') else '❌'} Confidence Scoring (Phase 1)")
+        print(f"    {'✅' if validations.get('phase2_classification') else '❌'} Document Classification (Phase 2)")
+        print(f"    {'✅' if validations.get('field_mapping_fix') else '❌'} Field Mapping Fix (Phase 1)")
         
         # Extraction quality summary
         if "extraction_quality" in self.test_results:
