@@ -26,6 +26,17 @@ from ..core.universal_preprocessor import UniversalPreprocessor
 from .files_client import FilesAPIClient  # TEST: Files API integration
 from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid Excel extraction
 
+# Import DocAI support (conditional to avoid failures if not configured)
+try:
+    from ....config.docai_config import is_general_processor_configured
+    from ...docai_general_processor import GeneralProcessorExtractor
+    DOCAI_AVAILABLE = True
+except ImportError:
+    DOCAI_AVAILABLE = False
+    
+    def is_general_processor_configured():
+        return False
+
 
 class BenchmarkExtractor:
     """
@@ -63,6 +74,16 @@ class BenchmarkExtractor:
         
         # Hybrid Excel extractor for superior Excel processing
         self.excel_extractor = HybridExcelExtractor(api_key=api_key)
+        
+        # Initialize Google Document AI General Processor if configured
+        self.general_processor = None
+        if DOCAI_AVAILABLE and is_general_processor_configured():
+            try:
+                self.general_processor = GeneralProcessorExtractor()
+                print("  ✅ Google Document AI General Processor initialized")
+            except Exception as e:
+                print(f"  ⚠️ Could not initialize DocAI: {e}")
+                self.general_processor = None
     
     @property
     def client(self):
@@ -146,34 +167,74 @@ class BenchmarkExtractor:
                     print(f"  ❌ Failed to process {excel_file.name}: {e}")
                     all_results[str(excel_file)] = {"error": str(e)}
         
-        # Convert other documents to images for LLM processing
+        # Process other documents with DocAI first, fallback to Claude Vision
         all_images = []
         total_pages = 0
+        docai_results = {}
+        failed_docai_files = []
         
         if other_files:
             print("\n" + "="*50)
-            print("NON-EXCEL FILE PROCESSING (IMAGE EXTRACTION)")
+            print("NON-EXCEL FILE PROCESSING")
             print("="*50)
             
-            for file_path in other_files:
-                try:
-                    file_size = Path(file_path).stat().st_size / 1024 / 1024  # MB
-                    print(f"\n  📄 Processing: {Path(file_path).name} ({file_size:.2f} MB)")
+            # Try DocAI first if available
+            if self.general_processor:
+                print("\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
+                print("  • Processor: General Processor ($1.50/1000 pages)")
+                
+                for file_path in other_files:
+                    file_path = Path(file_path)
+                    file_size = file_path.stat().st_size / 1024 / 1024  # MB
+                    print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
-                    processed = self.preprocessor.preprocess_any_document(file_path)
-                    all_images.extend(processed.images)
-                    
-                    # Track dimensions
-                    for idx, img in enumerate(processed.images):
-                        print(f"     • Image {idx+1}: {img.width}x{img.height} pixels")
-                        if img.width > 2000 or img.height > 2000:
-                            print(f"     ⚠️  WARNING: Image exceeds 2000px limit!")
-                    
-                    print(f"  ✅ Generated {len(processed.images)} images")
-                    total_pages += len(processed.images)
-                    
-                except Exception as e:
-                    print(f"  ❌ Failed to process {Path(file_path).name}: {e}")
+                    try:
+                        # Process with DocAI
+                        docai_result = await self.general_processor.extract(file_path)
+                        
+                        if docai_result.get("success"):
+                            docai_results[str(file_path)] = docai_result
+                            print(f"  ✅ DocAI Success!")
+                            print(f"     • Extracted text: {len(docai_result.get('text', ''))} characters")
+                            print(f"     • Entities found: {len(docai_result.get('entities', []))}")
+                            print(f"     • Tables found: {len(docai_result.get('tables', []))}")
+                            print(f"     • Form fields: {len(docai_result.get('form_fields', {}))}")
+                            print(f"     • Confidence: {docai_result.get('confidence', 0):.1%}")
+                        else:
+                            print(f"  ⚠️ DocAI failed: {docai_result.get('error', 'Unknown error')}")
+                            failed_docai_files.append(file_path)
+                            
+                    except Exception as e:
+                        print(f"  ❌ DocAI exception: {e}")
+                        failed_docai_files.append(file_path)
+            else:
+                # No DocAI available, all files need Claude Vision
+                failed_docai_files = other_files
+            
+            # Process failed files with Claude Vision
+            if failed_docai_files:
+                print("\n🔄 FALLBACK TO CLAUDE VISION (IMAGE EXTRACTION)")
+                print(f"  • Files to process: {len(failed_docai_files)}")
+                
+                for file_path in failed_docai_files:
+                    try:
+                        file_size = Path(file_path).stat().st_size / 1024 / 1024  # MB
+                        print(f"\n  📄 Processing: {Path(file_path).name} ({file_size:.2f} MB)")
+                        
+                        processed = self.preprocessor.preprocess_any_document(file_path)
+                        all_images.extend(processed.images)
+                        
+                        # Track dimensions
+                        for idx, img in enumerate(processed.images):
+                            print(f"     • Image {idx+1}: {img.width}x{img.height} pixels")
+                            if img.width > 2000 or img.height > 2000:
+                                print(f"     ⚠️  WARNING: Image exceeds 2000px limit!")
+                        
+                        print(f"  ✅ Generated {len(processed.images)} images")
+                        total_pages += len(processed.images)
+                        
+                    except Exception as e:
+                        print(f"  ❌ Failed to process {Path(file_path).name}: {e}")
         
         # Process images if we have any
         if all_images:
@@ -204,21 +265,35 @@ class BenchmarkExtractor:
         # Merge all results into final output
         result = {}
         
+        # Include DocAI results in all_results
+        if docai_results:
+            all_results.update(docai_results)
+        
         # Clean approach: Return actual extraction results
         if excel_files and not other_files:
             # Return Excel results directly
             result = all_results
             
-        # If we only have non-Excel files, return image extraction results
+        # If we only have non-Excel files
         elif other_files and not excel_files:
-            result = all_results.get('image_extraction', {})
+            # Combine DocAI results and Claude Vision results
+            if docai_results and all_results.get('image_extraction'):
+                # Both DocAI and Claude Vision were used
+                result = {**docai_results, **all_results.get('image_extraction', {})}
+            elif docai_results:
+                # Only DocAI was used
+                result = docai_results
+            else:
+                # Only Claude Vision was used
+                result = all_results.get('image_extraction', {})
             
-        # If we have both, combine them
+        # If we have both Excel and other files
         else:
-            # Combine both types of results
+            # Combine all types of results
             result = {
-                'excel_files': {k: v for k, v in all_results.items() if k != 'image_extraction'},
-                'document_files': all_results.get('image_extraction', {})
+                'excel_files': {k: v for k, v in all_results.items() 
+                              if k != 'image_extraction' and k not in docai_results},
+                'document_files': {**docai_results, **all_results.get('image_extraction', {})}
             }
         
         # Add metadata
@@ -228,13 +303,17 @@ class BenchmarkExtractor:
             'documents_processed': len(file_paths),
             'excel_files_processed': len(excel_files),
             'other_files_processed': len(other_files),
+            'docai_processed': len(docai_results),
+            'claude_vision_processed': len(failed_docai_files) if other_files else 0,
             'total_images': len(all_images),
             'model': self.model,
             'files_api_used': self.use_files_api,
+            'docai_enabled': self.general_processor is not None,
             'total_file_size_mb': total_file_size / 1024 / 1024,
             'extraction_methods': {
-                'excel': 'hybrid_pandas_first',
-                'other': 'image_llm' if all_images else 'none'
+                'excel': 'hybrid_pandas_first' if excel_files else 'none',
+                'docai': f'general_processor ({len(docai_results)} files)' if docai_results else 'none',
+                'claude_vision': f'image_llm ({len(all_images)} images)' if all_images else 'none'
             }
         }
         
