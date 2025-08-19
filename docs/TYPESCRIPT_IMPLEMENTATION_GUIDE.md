@@ -21,393 +21,685 @@ Document_Processing_Pipeline/
 
 ---
 
-## Core Architecture Components
+## SECTION 1: Google Document AI Implementation Details
 
-### Part 1: Document Processing (Extract ONCE)
+### Overview
+The current implementation uses Google Document AI as the primary extraction engine, with Claude Vision as an intelligent fallback. This hybrid approach achieves 85-97% accuracy while optimizing costs.
 
-#### `src/template_extraction/comprehensive_processor.py`
-**Purpose:** Orchestrates extraction from all document types into master JSON
+### Document AI Architecture
 
-**Key Features:**
-- Document type detection and routing
-- Excel-specific handling via HybridExcelExtractor
-- PDF/image processing via BenchmarkExtractor
-- Master JSON creation and management
-- Incremental document processing with merging
-- Extraction metadata tracking
+#### Processing Flow
+1. **Document Classification** → Pre-classified by UI (LoanApplicationItemType enum)
+2. **Processor Selection** → Form Parser for structured, Claude for narrative
+3. **Extraction** → DocAI extracts entities, tables, key-values, checkboxes
+4. **Fallback** → Claude Vision for failed/large documents
+5. **Result Merging** → Unified JSON output
 
-**Key Methods:**
-- `process_documents()` - Main entry point for batch processing
-- `_process_single_document()` - Routes based on file type
-- `_merge_into_master()` - Implements deep merge with conflict resolution
-- `_save_master_data()` - Persists to JSON with metadata
+#### Key Processors Used
 
-**Integration Points:**
-- Uses `HybridExcelExtractor` for `.xlsx` files
-- Falls back to `BenchmarkExtractor` for PDFs/images
-- Creates `master_data.json` in Part 1 output directory
+##### Form Parser Processor
+- **Purpose:** Extract structured data from forms and documents
+- **Capabilities:** Key-value pairs, tables, entities, checkboxes, layout analysis
+- **Limits:** 15 pages synchronous, 30 pages with imageless mode (requires allowlist)
+- **Cost:** $30 per 1000 pages
+- **Confidence:** 78-85% typical
+- **Best For:** Tax returns, financial statements, application forms
 
----
+##### General Processor (Fallback)
+- **Purpose:** Universal document processing
+- **Capabilities:** Text, entities, tables, basic structure
+- **Limits:** 30 pages
+- **Cost:** $1.50 per 1000 pages
+- **Confidence:** 70-75% typical
+- **When Used:** Form Parser unavailable or as cost-saving measure
 
-### Part 2a: Form Mapping (Map to MANY)
+#### Configuration Requirements
 
-#### `src/template_extraction/form_mapping_service.py`
-**Purpose:** Maps master JSON to 9 different bank forms
+##### Environment Variables
+```bash
+# Required for DocAI
+GOOGLE_CLOUD_PROJECT="your-project-id"
+GOOGLE_CLOUD_LOCATION="us"  # or "eu"
+DOCAI_FORM_PARSER_ID="16-char-hex-id"
+DOCAI_GENERAL_PROCESSOR_ID="16-char-hex-id"  # Optional fallback
 
-**Key Features:**
-- Dynamic form specification loading
-- Intelligent field mapping with confidence scoring
-- PDF generation for banks with templates
-- Coverage analysis and reporting
-- Field name variation handling
-
-**Key Methods:**
-- `map_all_forms()` - Processes all 9 bank forms
-- `_intelligent_field_mapping_with_confidence()` - Maps with scoring
-- `_find_field_match()` - Handles field name variations
-- `_generate_pdf()` - Creates filled PDFs
-
-**Configuration:**
-- `BANK_FORMS` dict - Defines which forms each bank needs
-- `PDF_TEMPLATES` dict - Maps banks to PDF template files
-- Form specs in `templates/form_specs/*.json`
-
-**Bug Fix Applied:**
-- Lines 335, 397: Handles both `name` and `field_name` properties
-
----
-
-### Part 2b: Spreadsheet Generation
-
-#### `src/template_extraction/spreadsheet_mapping_service.py`
-**Purpose:** Generates Excel spreadsheets from master data
-
-**Key Features:**
-- Debt schedule generation
-- Use of funds spreadsheet
-- Financial summary tables
-- Auto-formatting and formulas
-
-**Key Methods:**
-- `populate_all_spreadsheets()` - Generates all spreadsheet types
-- `_create_debt_schedule()` - Formats liability data
-- `_create_use_of_funds()` - Structures financial allocations
-
----
-
-### Pipeline Orchestration
-
-#### `src/template_extraction/pipeline_orchestrator.py`
-**Purpose:** Coordinates the entire two-part pipeline
-
-**Key Features:**
-- Application-level processing
-- Incremental document handling
-- Bank-specific form generation
-- Optional spreadsheet creation
-
-**Key Methods:**
-- `process_application()` - Main entry point
-- `process_incremental()` - Add documents to existing application
-- `_ensure_master_exists()` - Manages master JSON lifecycle
-
-**Usage Pattern:**
-```python
-# Process initial documents
-orchestrator.process_application(
-    application_id="app_001",
-    documents=[doc1, doc2],
-    target_banks=["live_oak", "huntington"]
-)
-
-# Add more documents later
-orchestrator.process_incremental(
-    application_id="app_001", 
-    new_document=doc3
-)
+# Processing options
+DOCAI_TIMEOUT="120"  # seconds
+DOCAI_MAX_RETRIES="3"
+DOCAI_MAX_PAGES_PER_REQUEST="15"
+DOCAI_USE_IMAGELESS_MODE="false"  # Requires Google allowlist
 ```
 
----
+##### Authentication
+- **Service Account:** JSON key file with Document AI API permissions
+- **Required Roles:** 
+  - `documentai.processor.process` 
+  - `documentai.processor.get`
+- **Setup:** Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
 
-## Legacy Extraction Components
+#### API Response Structure
 
-### Document Extraction
-
-#### `src/extraction_methods/multimodal_llm/providers/benchmark_extractor.py`
-**Purpose:** Core extraction engine using Claude Vision API
-
-**Key Features:**
-- Hybrid routing (Excel → pandas, Others → Vision API)
-- Single API call for entire document
-- Support for Files API and standard API
-- Structured prompt for loan data extraction
-
-**Configuration:**
-- `USE_FILES_API` environment variable
-- Model: `claude-3-5-sonnet-20241022`
-- Focus: SSN, business info, ownership, financials
-
----
-
-### Excel Processing
-
-#### `src/extraction_methods/multimodal_llm/extractors/hybrid_excel_extractor.py`
-**Purpose:** Direct Excel extraction without OCR
-
-**Key Features:**
-- Pandas-first extraction (100% accuracy on numbers)
-- Multi-sheet processing
-- Table structure detection
-- Optional LLM enhancement
-- 15x faster than image conversion
-
-**Extraction Modes:**
-- `pandas_only` - Pure deterministic extraction
-- `llm_enhanced` - Adds semantic understanding
-- `hybrid` - Combines both approaches
-
----
-
-### Form Processing
-
-#### `src/extraction_methods/multimodal_llm/providers/form_filler.py`
-**Purpose:** Dynamic form field mapping using LLM
-
-**Key Features:**
-- Loads form fields from templates
-- Intelligent field matching
-- Handles name variations
-- Complete workflow automation
-
-**Supported Forms:**
-- Live Oak: 203 fields
-- Huntington: 461 fields
-
----
-
-### PDF Generation
-
-#### `src/extraction_methods/multimodal_llm/providers/pdf_form_generator.py`
-**Purpose:** Fills PDF forms with extracted data
-
-**Key Features:**
-- Deterministic PDF filling via pypdf
-- Checkbox state management
-- Field discovery from PDF structure
-- ~700KB output files
-
-**Key Methods:**
-- `generate_filled_pdf()` - Main entry point
-- `_update_checkboxes()` - Handles checkbox complexity
-- `_fill_form_fields()` - Text field population
-
----
-
-### Dynamic Form Discovery
-
-#### `src/extraction_methods/multimodal_llm/providers/dynamic_form_mapper.py`
-**Purpose:** Extracts fields from any PDF without pre-configuration
-
-**Key Features:**
-- Automatic field detection
-- Caching for performance
-- Fallback strategies
-- Universal form support
-
-**Cache Location:** `outputs/form_mappings/*_dynamic.json`
-
----
-
-## Form Specifications
-
-### Location: `templates/form_specs/`
-
-**File Naming Convention:** `{bank}_{form_type}_v1.json`
-
-**Structure:**
-```json
-{
-  "form_id": "unique_identifier",
-  "version": "2025.01",
-  "fields": [
-    {
-      "id": "field_identifier",
-      "field_name": "Display Name",  // Note: Some use "name" instead
-      "type": "text|money|date|checkbox",
-      "required": true/false
-    }
-  ]
+##### Form Parser Response
+```typescript
+interface FormParserResponse {
+  text: string;                    // Full extracted text
+  confidence: number;               // Overall confidence (0-1)
+  pages: Array<{
+    pageNumber: number;
+    dimension: { width: number; height: number; unit: string };
+    layout: Layout;
+    blocks: Block[];
+    paragraphs: Paragraph[];
+    lines: Line[];
+    tokens: Token[];
+  }>;
+  entities: Array<{
+    type: string;                 // e.g., "person", "organization", "date"
+    mentionText: string;
+    confidence: number;
+    pageAnchor: PageAnchor;
+  }>;
+  tables: Array<{
+    layout: Layout;
+    headerRows: Row[];
+    bodyRows: Row[];
+  }>;
+  formFields: Array<{
+    fieldName: { text: string; confidence: number };
+    fieldValue: { text: string; confidence: number };
+    pageAnchor: PageAnchor;
+  }>;
+  checkboxes: Array<{
+    name: string;
+    value: "checked" | "unchecked";
+    confidence: number;
+  }>;
 }
 ```
 
-**Available Specifications:**
-- `live_oak_application_v1.json` - Main application
-- `live_oak_pfs_v1.json` - Personal financial statement
-- `huntington_business_app_v1.json` - Business application
-- `huntington_pfs_v1.json` - Personal financial statement
-- `wells_fargo_loan_app_v1.json` - Loan application
-- (9 total across 3 banks)
+#### Processing Strategies
 
----
-
-## Test Infrastructure
-
-### Comprehensive Testing
-
-#### `tests/integration/test_comprehensive_end_to_end.py`
-**Purpose:** Full pipeline validation with all features
-
-**Test Phases:**
-1. Initial document processing
-2. Incremental document addition
-3. Conflict resolution testing
-4. Complete application processing
-
-**Validation Points:**
-- Master JSON creation
-- Field extraction counts
-- Form mapping coverage
-- PDF generation
-- Spreadsheet creation
-- Phase 1 & 2 improvements
-
----
-
-## Output Structure
-
+##### Document Type Routing
 ```
-outputs/applications/{application_id}/
-├── part1_document_processing/
-│   ├── master_data.json           # Combined extraction
-│   ├── extractions/               # Individual document results
-│   └── logs/                      # Processing logs
-│
-├── part2_form_mapping/
-│   ├── banks/
-│   │   ├── live_oak/             # Bank-specific outputs
-│   │   ├── huntington/
-│   │   └── wells_fargo/
-│   └── mapping_summary.json      # Overall statistics
-│
-└── part2_spreadsheets/
-    ├── debt_schedule.xlsx
-    └── use_of_funds.xlsx
+Structured Documents → Form Parser
+├── Tax Returns (1040, 1065, 1120S)
+├── Financial Statements (PFS, Balance Sheet, P&L)
+├── Bank Statements
+├── Debt Schedules
+└── Application Forms
+
+Narrative Documents → Claude Vision
+├── Business Plans
+├── Management Bios
+├── Letters of Intent
+├── Legal Documents
+└── Executive Summaries
+
+Tabular Documents → Hybrid Approach
+├── Excel → Pandas (100% accuracy, no API)
+├── PDF Tables → Form Parser
+└── Complex Tables → Claude Vision
 ```
 
+##### Error Handling & Fallbacks
+1. **Rate Limiting:** 429 errors → Exponential backoff with jitter
+2. **Page Limit Exceeded:** Split document into chunks
+3. **Low Confidence:** Re-process with Claude Vision
+4. **Timeout:** Retry with increased timeout
+5. **Authentication Failed:** Check service account permissions
+
 ---
 
-## Configuration Files
+## SECTION 2: TypeScript Migration Guide
 
-### Environment Variables (`.env`)
+### Overview
+This section provides a detailed guide for migrating the Python document processing pipeline to TypeScript, broken into logical PRs for incremental deployment.
+
+### Required Libraries & Dependencies
+
+#### Core Processing Libraries
+```json
+{
+  "@google-cloud/documentai": "^8.0.0",     // Google Document AI client
+  "@anthropic-ai/sdk": "^0.20.0",           // Claude API client
+  "pdf-lib": "^1.17.1",                     // PDF manipulation
+  "pdfjs-dist": "^3.11.0",                  // PDF parsing
+  "xlsx": "^0.18.5",                        // Excel processing
+  "sharp": "^0.33.0",                       // Image processing
+  "tesseract.js": "^5.0.0"                  // OCR fallback (optional)
+}
 ```
-ANTHROPIC_API_KEY=sk-ant-api03-xxx
-USE_FILES_API=false
-TORCH_DEVICE=cpu
-RECOGNITION_BATCH_SIZE=4
+
+#### Utility Libraries
+```json
+{
+  "lodash": "^4.17.21",                     // Data manipulation
+  "joi": "^17.11.0",                        // Schema validation
+  "winston": "^3.11.0",                     // Logging
+  "bull": "^4.11.0",                        // Job queue for async processing
+  "redis": "^4.6.0",                        // Caching layer
+  "dotenv": "^16.3.0"                       // Environment configuration
+}
 ```
 
-### Project Documentation
-- `CLAUDE.md` - AI assistant instructions
-- `README.md` - Project overview
-- `docs/architecture/` - Technical documentation
+### PR Breakdown for Migration
+
+#### PR 1: Core Infrastructure Setup
+**Scope:** Foundation and configuration
+- Set up TypeScript project structure
+- Configure Google Cloud SDK authentication
+- Implement configuration management system
+- Add environment variable validation
+- Create base error handling classes
+- Set up logging infrastructure
+
+**Key Files to Create:**
+- `src/config/docai.config.ts` - DocAI configuration
+- `src/config/app.config.ts` - Application settings
+- `src/utils/logger.ts` - Winston logger setup
+- `src/errors/index.ts` - Custom error classes
+- `src/types/document.types.ts` - Core type definitions
+
+**Testing:** Configuration validation, logger output
 
 ---
 
-## Feature Location Quick Reference
+#### PR 2: Document Classification System
+**Scope:** Document type detection and routing
+- Port `EnhancedDocumentClassifier` logic
+- Implement LoanApplicationItemType enum
+- Create document routing logic
+- Add filename-based classification
+- Implement content-based classification fallback
 
-| Feature | Primary File | Supporting Files |
-|---------|-------------|------------------|
-| Master JSON Creation | `comprehensive_processor.py` | `benchmark_extractor.py` |
-| Excel Extraction | `hybrid_excel_extractor.py` | `comprehensive_processor.py` |
-| PDF Text Extraction | `benchmark_extractor.py` | `universal_preprocessor.py` |
-| Form Field Mapping | `form_mapping_service.py` | Form specs in `templates/` |
-| PDF Generation | `pdf_form_generator.py` | `form_mapping_service.py` |
-| Confidence Scoring | `form_mapping_service.py` | Embedded in service |
-| Document Classification | `comprehensive_processor.py` | Via file extension |
-| Incremental Processing | `pipeline_orchestrator.py` | `comprehensive_processor.py` |
-| Spreadsheet Generation | `spreadsheet_mapping_service.py` | Master data dependency |
-| Testing | `test_comprehensive_end_to_end.py` | Multiple test files |
+**Key Files to Create:**
+- `src/classifiers/DocumentClassifier.ts`
+- `src/types/LoanApplicationItemType.ts`
+- `src/routers/DocumentRouter.ts`
+- `src/utils/patterns.ts` - Regex patterns for classification
 
----
-
-## Common Development Tasks
-
-### Adding a New Bank Form
-1. Create form spec in `templates/form_specs/{bank}_{type}_v1.json`
-2. Add to `BANK_FORMS` dict in `form_mapping_service.py`
-3. Optionally add PDF template to `templates/`
-4. Update `PDF_TEMPLATES` dict if PDF exists
-
-### Adding a New Document Type
-1. Update classification in `comprehensive_processor.py`
-2. Add extraction logic in `_process_single_document()`
-3. Create specific extractor if needed
-4. Update routing logic
-
-### Improving Field Mapping
-1. Edit `_find_field_match()` in `form_mapping_service.py`
-2. Add field variations to the `variations` dict
-3. Test with comprehensive test suite
-
-### Adding a New Spreadsheet Type
-1. Create method in `spreadsheet_mapping_service.py`
-2. Add to `populate_all_spreadsheets()`
-3. Define output path structure
-4. Implement formatting logic
+**Testing:** Classification accuracy for all document types
 
 ---
 
-## Debugging Entry Points
+#### PR 3: Google Document AI Integration
+**Scope:** Form Parser and General Processor clients
+- Implement DocAI client wrapper
+- Add Form Parser processor
+- Add General Processor fallback
+- Implement retry logic with exponential backoff
+- Add response parsing and normalization
 
-### Check Extraction Quality
-- Start: `comprehensive_processor.py::_process_single_document()`
-- Follow: Document type routing
-- End: Individual extractor (Excel or Vision)
+**Key Files to Create:**
+- `src/processors/DocAIClient.ts` - Base client
+- `src/processors/FormParserProcessor.ts`
+- `src/processors/GeneralProcessor.ts`
+- `src/utils/retry.ts` - Retry mechanisms
+- `src/parsers/DocAIResponseParser.ts`
 
-### Trace Form Mapping Issues
-- Start: `form_mapping_service.py::_intelligent_field_mapping_with_confidence()`
-- Check: Form spec loading in `_load_all_form_specifications()`
-- Debug: Field matching in `_find_field_with_confidence()`
-
-### Investigate PDF Generation
-- Start: `pdf_form_generator.py::generate_filled_pdf()`
-- Check: Template path and field discovery
-- Debug: Checkbox states in `_update_checkboxes()`
-
----
-
-## Performance Optimization Points
-
-1. **Excel Processing**: Already optimized with pandas (15x faster)
-2. **Vision API Calls**: Batch pages when possible
-3. **Form Mapping**: Uses lazy loading for components
-4. **PDF Generation**: Cached form field discovery
-5. **Master JSON**: Incremental updates, not full rewrites
+**Testing:** Process sample documents, verify extraction
 
 ---
 
-## Known Issues & Solutions
+#### PR 4: Claude Vision Integration
+**Scope:** Anthropic API integration for narrative documents
+- Implement Claude client wrapper
+- Add image preprocessing logic
+- Create prompt templates
+- Implement response parsing
+- Add rate limiting
 
-### Issue: Form mapping shows 0% coverage
-**Solution:** Fixed in form_mapping_service.py lines 335, 397
-- Handles both `name` and `field_name` properties
+**Key Files to Create:**
+- `src/processors/ClaudeProcessor.ts`
+- `src/preprocessors/ImagePreprocessor.ts`
+- `src/templates/prompts.ts`
+- `src/utils/rateLimiter.ts`
 
-### Issue: Excel extraction fails
-**Solution:** Routes to HybridExcelExtractor automatically
-- Bypasses image conversion for 100% accuracy
-
-### Issue: Import deadlocks
-**Solution:** Lazy loading pattern implemented
-- Components loaded on-demand
+**Testing:** Process narrative documents, verify extraction
 
 ---
 
-## Next Steps for Improvement
+#### PR 5: Excel Processing Module
+**Scope:** Direct Excel extraction without OCR
+- Implement XLSX parser
+- Add sheet detection logic
+- Create table extraction
+- Add financial data detection
+- Implement pure TypeScript extraction (no API calls)
 
-1. **Add OCR fallback** for scanned PDFs (Marker+Surya)
-2. **Implement content-hash deduplication** 
-3. **Add provenance tracking** at field level
-4. **Create API routing layer** for paid services
-5. **Build budget tracking system** for API costs
+**Key Files to Create:**
+- `src/processors/ExcelProcessor.ts`
+- `src/extractors/TableExtractor.ts`
+- `src/utils/financial.ts` - Financial data patterns
+
+**Testing:** Process Excel files, verify 100% numeric accuracy
+
+---
+
+#### PR 6: Enhanced Document Router
+**Scope:** Intelligent routing based on document type
+- Implement document type to processor mapping
+- Add narrative vs structured classification
+- Create cost optimization logic
+- Add processor selection algorithm
+- Implement fallback chains
+
+**Key Files to Create:**
+- `src/routers/EnhancedDocumentRouter.ts`
+- `src/strategies/ProcessingStrategy.ts`
+- `src/optimizers/CostOptimizer.ts`
+
+**Testing:** Verify correct processor selection for each type
+
+---
+
+#### PR 7: Rate Limiting & Error Handling
+**Scope:** Robust error handling and rate limiting
+- Implement rate limiter for all APIs
+- Add exponential backoff with jitter
+- Create error recovery strategies
+- Add circuit breaker pattern
+- Implement dead letter queue
+
+**Key Files to Create:**
+- `src/middleware/RateLimiter.ts`
+- `src/utils/backoff.ts`
+- `src/patterns/CircuitBreaker.ts`
+- `src/queues/DeadLetterQueue.ts`
+
+**Testing:** Simulate rate limit scenarios, verify recovery
+
+---
+
+#### PR 8: Result Merging & Normalization
+**Scope:** Combine results from multiple processors
+- Implement result merger
+- Add confidence aggregation
+- Create field deduplication
+- Add provenance tracking
+- Implement master JSON structure
+
+**Key Files to Create:**
+- `src/mergers/ResultMerger.ts`
+- `src/aggregators/ConfidenceAggregator.ts`
+- `src/utils/deduplication.ts`
+- `src/models/MasterDocument.ts`
+
+**Testing:** Merge multiple extraction results
+
+---
+
+#### PR 9: Preprocessing Layer
+**Scope:** Extract data without API calls
+- Port DocumentPreprocessor logic
+- Implement table detection
+- Add key-value extraction
+- Create pattern matching
+- Add preprocessing decision logic
+
+**Key Files to Create:**
+- `src/preprocessors/DocumentPreprocessor.ts`
+- `src/extractors/KeyValueExtractor.ts`
+- `src/detectors/TableDetector.ts`
+- `src/matchers/PatternMatcher.ts`
+
+**Testing:** Extract fields without API calls
+
+---
+
+#### PR 10: Form Mapping Service
+**Scope:** Map extracted data to bank forms
+- Implement form specification loader
+- Create intelligent field mapping
+- Add confidence scoring
+- Implement coverage analysis
+- Add field variation handling
+
+**Key Files to Create:**
+- `src/services/FormMappingService.ts`
+- `src/mappers/FieldMapper.ts`
+- `src/analyzers/CoverageAnalyzer.ts`
+- `src/specs/FormSpecificationLoader.ts`
+
+**Testing:** Map to all 9 bank forms
+
+---
+
+#### PR 11: PDF Generation
+**Scope:** Generate filled PDF forms
+- Implement PDF form filler
+- Add checkbox handling
+- Create field discovery
+- Add template management
+- Implement batch PDF generation
+
+**Key Files to Create:**
+- `src/generators/PDFGenerator.ts`
+- `src/fillers/FormFiller.ts`
+- `src/handlers/CheckboxHandler.ts`
+- `src/managers/TemplateManager.ts`
+
+**Testing:** Generate PDFs for all banks
+
+---
+
+#### PR 12: Pipeline Orchestration
+**Scope:** Coordinate entire processing pipeline
+- Implement main orchestrator
+- Add job queue management
+- Create progress tracking
+- Add incremental processing
+- Implement application-level logic
+
+**Key Files to Create:**
+- `src/orchestrators/PipelineOrchestrator.ts`
+- `src/queues/JobQueue.ts`
+- `src/trackers/ProgressTracker.ts`
+- `src/services/ApplicationService.ts`
+
+**Testing:** End-to-end pipeline test
+
+---
+
+#### PR 13: Caching & Performance
+**Scope:** Optimize performance with caching
+- Implement Redis caching layer
+- Add document fingerprinting
+- Create cache invalidation logic
+- Add result caching
+- Implement preprocessing cache
+
+**Key Files to Create:**
+- `src/cache/CacheManager.ts`
+- `src/utils/fingerprint.ts`
+- `src/strategies/CacheStrategy.ts`
+
+**Testing:** Verify cache hits, measure performance
+
+---
+
+#### PR 14: Monitoring & Observability
+**Scope:** Add comprehensive monitoring
+- Implement metrics collection
+- Add API cost tracking
+- Create performance monitoring
+- Add error tracking
+- Implement alerting
+
+**Key Files to Create:**
+- `src/monitoring/MetricsCollector.ts`
+- `src/trackers/CostTracker.ts`
+- `src/monitors/PerformanceMonitor.ts`
+- `src/alerts/AlertManager.ts`
+
+**Testing:** Verify metrics collection
+
+---
+
+#### PR 15: Testing Infrastructure
+**Scope:** Comprehensive test suite
+- Add unit tests for all modules
+- Create integration tests
+- Add E2E test scenarios
+- Implement test fixtures
+- Add performance benchmarks
+
+**Key Files to Create:**
+- `tests/unit/**/*.test.ts`
+- `tests/integration/**/*.test.ts`
+- `tests/e2e/**/*.test.ts`
+- `tests/fixtures/**/*`
+- `tests/benchmarks/**/*.bench.ts`
+
+**Testing:** All tests pass with >80% coverage
+
+---
+
+### Key Implementation Considerations
+
+#### Authentication & Security
+1. **Service Account Management:** Store credentials securely, rotate regularly
+2. **API Key Security:** Use environment variables, never commit keys
+3. **Data Encryption:** Encrypt sensitive data at rest and in transit
+4. **Access Control:** Implement role-based access for different operations
+5. **Audit Logging:** Track all document processing activities
+
+#### Performance Optimization
+1. **Batch Processing:** Group documents for efficient API usage
+2. **Parallel Processing:** Use worker threads for CPU-intensive tasks
+3. **Lazy Loading:** Load processors only when needed
+4. **Connection Pooling:** Reuse API connections
+5. **Memory Management:** Stream large files, avoid loading into memory
+
+#### Error Recovery Strategies
+1. **Retry Logic:** Exponential backoff for transient failures
+2. **Circuit Breaker:** Prevent cascading failures
+3. **Fallback Chain:** DocAI → Claude → Manual review
+4. **Partial Success:** Save successful extractions even if some fail
+5. **Dead Letter Queue:** Handle permanently failed documents
+
+#### Cost Optimization
+1. **Processor Selection:** Use cheapest processor that meets accuracy needs
+2. **Preprocessing:** Extract obvious fields without API calls
+3. **Caching:** Cache extraction results by document hash
+4. **Batch API:** Use batch endpoints when available
+5. **Budget Limits:** Implement daily/monthly spending caps
+
+---
+
+## SECTION 3: Core Workflows
+
+### Document Processing Workflow
+
+#### Step 1: Document Receipt
+- File uploaded to S3/storage
+- Metadata recorded (type, size, upload time)
+- Document queued for processing
+
+#### Step 2: Classification
+- Filename analysis (75% confidence)
+- Content sampling if needed
+- Route to appropriate processor
+
+#### Step 3: Preprocessing (Optional)
+- Extract tables without OCR
+- Find key-value pairs via patterns
+- Determine if API needed
+
+#### Step 4: Primary Processing
+- **Structured:** DocAI Form Parser
+- **Narrative:** Claude Vision
+- **Excel:** Pandas extraction
+
+#### Step 5: Fallback Processing
+- If primary fails → try secondary
+- If confidence low → reprocess
+- If page limit exceeded → chunk
+
+#### Step 6: Result Merging
+- Combine multiple extractions
+- Deduplicate fields
+- Calculate confidence scores
+
+#### Step 7: Validation
+- Schema validation
+- Business rule checks
+- Confidence thresholds
+
+#### Step 8: Storage
+- Save to master JSON
+- Update extraction logs
+- Cache results
+
+### Form Mapping Workflow
+
+#### Step 1: Load Master Data
+- Read extracted JSON
+- Validate completeness
+- Check data quality
+
+#### Step 2: Load Form Specifications
+- Read bank form templates
+- Parse field requirements
+- Load validation rules
+
+#### Step 3: Field Mapping
+- Match extracted to required fields
+- Handle name variations
+- Calculate confidence scores
+
+#### Step 4: PDF Generation
+- Load PDF template
+- Fill form fields
+- Update checkboxes
+- Save filled PDF
+
+#### Step 5: Coverage Analysis
+- Calculate field coverage
+- Identify missing data
+- Generate reports
+
+### Incremental Processing Workflow
+
+#### Step 1: Check Existing Data
+- Load existing master JSON
+- Identify processed documents
+- Determine merge strategy
+
+#### Step 2: Process New Documents
+- Extract from new files only
+- Maintain processing history
+- Track document versions
+
+#### Step 3: Merge Results
+- Deep merge with conflict resolution
+- Last-write-wins for conflicts
+- Preserve metadata
+
+#### Step 4: Update Master
+- Save merged data
+- Update timestamps
+- Log changes
+
+---
+
+## SECTION 4: Migration Checklist
+
+### Pre-Migration
+- [ ] Audit current Python implementation
+- [ ] Document all business rules
+- [ ] Create test document set
+- [ ] Set up TypeScript project
+- [ ] Configure CI/CD pipeline
+
+### Infrastructure
+- [ ] Set up Google Cloud project
+- [ ] Configure service accounts
+- [ ] Set up Redis cache
+- [ ] Configure job queue
+- [ ] Set up monitoring
+
+### Core Implementation
+- [ ] Port document classifiers
+- [ ] Implement DocAI integration
+- [ ] Add Claude integration
+- [ ] Create Excel processor
+- [ ] Build result merger
+
+### Testing
+- [ ] Unit tests (>80% coverage)
+- [ ] Integration tests
+- [ ] E2E scenarios
+- [ ] Performance benchmarks
+- [ ] Load testing
+
+### Deployment
+- [ ] Staging deployment
+- [ ] A/B testing setup
+- [ ] Production deployment
+- [ ] Monitoring verification
+- [ ] Rollback plan ready
+
+### Post-Migration
+- [ ] Performance comparison
+- [ ] Cost analysis
+- [ ] User training
+- [ ] Documentation update
+- [ ] Deprecate Python version
+
+---
+
+## SECTION 5: Key Differences from Python Implementation
+
+### Type Safety
+- **Python:** Runtime type checking, optional type hints
+- **TypeScript:** Compile-time type checking, enforced types
+- **Migration:** Define interfaces for all data structures
+
+### Async Handling
+- **Python:** `async/await` with asyncio
+- **TypeScript:** Native `Promise` and `async/await`
+- **Migration:** Convert asyncio patterns to Promise patterns
+
+### Package Management
+- **Python:** pip/poetry with requirements.txt
+- **TypeScript:** npm/yarn with package.json
+- **Migration:** Map Python packages to Node equivalents
+
+### File System
+- **Python:** `pathlib.Path`
+- **TypeScript:** Node.js `fs` and `path` modules
+- **Migration:** Use `fs.promises` for async file operations
+
+### HTTP Clients
+- **Python:** `aiohttp`, `requests`
+- **TypeScript:** `axios`, `fetch`, native `https`
+- **Migration:** Standardize on axios for consistency
+
+### Data Processing
+- **Python:** pandas, numpy
+- **TypeScript:** Native arrays, lodash, or DataFrame libraries
+- **Migration:** Consider `danfojs` for pandas-like operations
+
+---
+
+## Appendix: Quick Reference
+
+### Environment Variables
+```bash
+# Google Cloud
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_APPLICATION_CREDENTIALS=
+DOCAI_FORM_PARSER_ID=
+DOCAI_GENERAL_PROCESSOR_ID=
+
+# Anthropic
+ANTHROPIC_API_KEY=
+
+# Application
+NODE_ENV=production
+LOG_LEVEL=info
+CACHE_TTL=3600
+MAX_RETRIES=3
+```
+
+### Common Commands
+```bash
+# Development
+npm run dev              # Start development server
+npm run build           # Build TypeScript
+npm run test            # Run tests
+npm run lint            # Lint code
+
+# Processing
+npm run process -- --file document.pdf --type TAX_RETURN
+npm run batch -- --dir ./documents --output ./results
+npm run validate -- --master ./master.json
+
+# Deployment
+npm run deploy:staging
+npm run deploy:production
+npm run rollback
+```
 
 This guide provides a roadmap through the codebase without extensive code snippets, focusing on where features live and how components interact.
