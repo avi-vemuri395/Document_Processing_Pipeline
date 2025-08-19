@@ -28,6 +28,15 @@ PROCESSING_CONFIG = {
     "retry_deadline": 300.0
 }
 
+# Document routing configuration for intelligent processing
+DOCUMENT_ROUTING = {
+    "enable_smart_routing": os.getenv("ENABLE_SMART_ROUTING", "true").lower() == "true",
+    "skip_docai_for_narrative": os.getenv("SKIP_DOCAI_FOR_NARRATIVE", "true").lower() == "true", 
+    "enable_rate_limiting": os.getenv("ENABLE_RATE_LIMITING", "true").lower() == "true",
+    "rate_limit_docai_rps": int(os.getenv("RATE_LIMIT_DOCAI_RPS", "10")),  # 10 req/s
+    "rate_limit_claude_rps": int(os.getenv("RATE_LIMIT_CLAUDE_RPS", "5"))  # 5 req/s
+}
+
 # Processor configurations
 DOCAI_CONFIG: Dict[str, Any] = {
     "project_id": PROJECT_ID,

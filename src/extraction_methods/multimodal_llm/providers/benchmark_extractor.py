@@ -25,6 +25,7 @@ except ImportError:
 from ..core.universal_preprocessor import UniversalPreprocessor
 from .files_client import FilesAPIClient  # TEST: Files API integration
 from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid Excel extraction
+from .rate_limiter import RateLimitHandler  # Rate limiting with exponential backoff
 
 # Import DocAI support (conditional to avoid failures if not configured)
 try:
@@ -41,6 +42,26 @@ except ImportError as e:
     
     def is_general_processor_configured():
         return False
+
+
+# Document type classifications for intelligent routing
+NARRATIVE_DOCUMENT_TYPES = {
+    'BUSINESS_PLAN', 'MANAGEMENT_BIOS', 'LETTER_OF_INTENT',
+    'RESUME_OR_MANAGEMENT_BIOS', 'PERSONAL_GUARANTEE',
+    'BUSINESS_PLAN_OR_EXECUTIVE_SUMMARY', 'COVER_LETTER',
+    'ARTICLES_OF_INCORPORATION', 'FRANCHISE_AGREEMENT'
+}
+
+STRUCTURED_DOCUMENT_TYPES = {
+    'PERSONAL_FINANCIAL_STATEMENT', 'BUSINESS_FINANCIAL_STATEMENT',
+    'PERSONAL_TAX_RETURN', 'BUSINESS_TAX_RETURN',
+    'BUSINESS_DEBT_SCHEDULE', 'AR_AP_AGING_REPORTS',
+    'INTERIM_FINANCIALS', 'BUSINESS_BANK_STATEMENT',
+    'PERSONAL_BANK_STATEMENT', 'BALANCE_SHEET',
+    'PROFIT_LOSS_STATEMENT', 'ACCOUNTS_RECEIVABLE',
+    'ACCOUNTS_PAYABLE', 'OTHER_TAX_DOCUMENT',
+    'EQUIPMENT_QUOTE', 'ENVIRONMENTAL_QUESTIONNAIRE'
+}
 
 
 class BenchmarkExtractor:
@@ -103,6 +124,10 @@ class BenchmarkExtractor:
             except Exception as e:
                 print(f"  ⚠️ Could not initialize General Processor: {e}")
                 self.general_processor = None
+        
+        # Initialize rate limiter for API calls
+        self.rate_limiter = RateLimitHandler()
+        print("  ✅ Rate limiter initialized")
     
     @property
     def client(self):
@@ -113,13 +138,17 @@ class BenchmarkExtractor:
     
     async def extract_all(
         self, 
-        file_paths: Union[str, Path, List[Union[str, Path]]]
+        file_paths: Union[str, Path, List[Union[str, Path]]],
+        document_types: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Extract all information from documents as structured JSON.
         
         Args:
             file_paths: Single document or list of documents
+            document_types: Optional list of document types for intelligent routing.
+                          Should match LoanApplicationItemType enum values.
+                          If not provided, uses default routing (backward compatible).
             
         Returns:
             Dict with all extracted data in structured format
@@ -211,14 +240,36 @@ class BenchmarkExtractor:
                 print(f"\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
                 print(f"  • Processor: {processor_type} ({pricing})")
                 
-                for file_path in other_files:
+                # Smart routing based on document type
+                files_for_docai = []
+                for i, file_path in enumerate(other_files):
+                    doc_type = document_types[i] if document_types and i < len(document_types) else None
+                    
+                    if doc_type and doc_type in NARRATIVE_DOCUMENT_TYPES:
+                        # Skip DocAI for narrative documents - go straight to Claude
+                        print(f"\n  📝 Narrative document detected: {doc_type}")
+                        print(f"     File: {Path(file_path).name}")
+                        print(f"     → Routing directly to Claude Vision (cost optimization)")
+                        failed_docai_files.append(file_path)
+                    else:
+                        files_for_docai.append(file_path)
+                        if doc_type:
+                            print(f"\n  📊 Structured document detected: {doc_type}")
+                            print(f"     File: {Path(file_path).name}")
+                            print(f"     → Trying DocAI first for optimal extraction")
+                
+                for file_path in files_for_docai:
                     file_path = Path(file_path)
                     file_size = file_path.stat().st_size / 1024 / 1024  # MB
                     print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
                     try:
-                        # Process with DocAI (Form Parser or General Processor)
-                        docai_result = await docai_processor.extract(file_path)
+                        # Process with DocAI (Form Parser or General Processor) with rate limiting
+                        docai_result = await self.rate_limiter.execute_with_backoff(
+                            docai_processor.extract,
+                            file_path,
+                            api_type="docai"
+                        )
                         
                         if docai_result.get("success"):
                             docai_results[str(file_path)] = docai_result
@@ -727,11 +778,13 @@ Return ONLY valid JSON. Be extremely precise with numbers and business relations
             print(f"\n🚀 Making API call to {self.model}...")
             api_start = time.time()
             
-            response = await self.client.messages.create(
+            response = await self.rate_limiter.execute_with_backoff(
+                self.client.messages.create,
                 model=self.model,
                 max_tokens=8192,
                 temperature=0,
-                messages=[{"role": "user", "content": content}]
+                messages=[{"role": "user", "content": content}],
+                api_type="claude"
             )
             
             api_time = time.time() - api_start
@@ -939,12 +992,14 @@ Return ONLY valid JSON. Be extremely precise with numbers and business relations
             api_start = time.time()
             extra_headers = {"anthropic-beta": "files-api-2025-04-14"}
             
-            response = await self.client.messages.create(
+            response = await self.rate_limiter.execute_with_backoff(
+                self.client.messages.create,
                 model=self.model,
                 max_tokens=8192,
                 temperature=0,
                 messages=[{"role": "user", "content": content}],
-                extra_headers=extra_headers
+                extra_headers=extra_headers,
+                api_type="claude"
             )
             
             api_time = time.time() - api_start
