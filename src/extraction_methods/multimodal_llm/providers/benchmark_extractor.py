@@ -28,11 +28,16 @@ from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid E
 
 # Import DocAI support (conditional to avoid failures if not configured)
 try:
-    from ....config.docai_config import is_general_processor_configured
+    from ....config.docai_config import is_form_parser_configured, is_general_processor_configured
+    from ...docai_form_parser import FormParserExtractor
     from ...docai_general_processor import GeneralProcessorExtractor
     DOCAI_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"  ⚠️ DocAI imports failed: {e}")
     DOCAI_AVAILABLE = False
+    
+    def is_form_parser_configured():
+        return False
     
     def is_general_processor_configured():
         return False
@@ -75,14 +80,28 @@ class BenchmarkExtractor:
         # Hybrid Excel extractor for superior Excel processing
         self.excel_extractor = HybridExcelExtractor(api_key=api_key)
         
-        # Initialize Google Document AI General Processor if configured
+        # Initialize Google Document AI Form Parser if configured (preferred)
+        self.form_parser = None
+        if not DOCAI_AVAILABLE:
+            print("  ℹ️ DocAI not available (import failed)")
+        elif not is_form_parser_configured():
+            print("  ℹ️ Form Parser not configured")
+        else:
+            try:
+                self.form_parser = FormParserExtractor()
+                print("  ✅ Google Document AI Form Parser initialized")
+            except Exception as e:
+                print(f"  ⚠️ Could not initialize Form Parser: {e}")
+                self.form_parser = None
+        
+        # Fallback to General Processor if Form Parser not available
         self.general_processor = None
-        if DOCAI_AVAILABLE and is_general_processor_configured():
+        if not self.form_parser and DOCAI_AVAILABLE and is_general_processor_configured():
             try:
                 self.general_processor = GeneralProcessorExtractor()
-                print("  ✅ Google Document AI General Processor initialized")
+                print("  ✅ Google Document AI General Processor initialized (fallback)")
             except Exception as e:
-                print(f"  ⚠️ Could not initialize DocAI: {e}")
+                print(f"  ⚠️ Could not initialize General Processor: {e}")
                 self.general_processor = None
     
     @property
@@ -178,10 +197,19 @@ class BenchmarkExtractor:
             print("NON-EXCEL FILE PROCESSING")
             print("="*50)
             
-            # Try DocAI first if available
-            if self.general_processor:
-                print("\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
-                print("  • Processor: General Processor ($1.50/1000 pages)")
+            # Debug: Check DocAI availability
+            print(f"\n🔍 DEBUG: DocAI Status")
+            print(f"  • Form Parser available: {self.form_parser is not None}")
+            print(f"  • General Processor available: {self.general_processor is not None}")
+            
+            # Try DocAI first if available (prefer Form Parser over General Processor)
+            docai_processor = self.form_parser or self.general_processor
+            if docai_processor:
+                processor_type = "Form Parser" if self.form_parser else "General Processor"
+                pricing = "$30/1000 pages" if self.form_parser else "$1.50/1000 pages"
+                
+                print(f"\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
+                print(f"  • Processor: {processor_type} ({pricing})")
                 
                 for file_path in other_files:
                     file_path = Path(file_path)
@@ -189,16 +217,25 @@ class BenchmarkExtractor:
                     print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
                     try:
-                        # Process with DocAI
-                        docai_result = await self.general_processor.extract(file_path)
+                        # Process with DocAI (Form Parser or General Processor)
+                        docai_result = await docai_processor.extract(file_path)
                         
                         if docai_result.get("success"):
                             docai_results[str(file_path)] = docai_result
                             print(f"  ✅ DocAI Success!")
                             print(f"     • Extracted text: {len(docai_result.get('text', ''))} characters")
-                            print(f"     • Entities found: {len(docai_result.get('entities', []))}")
-                            print(f"     • Tables found: {len(docai_result.get('tables', []))}")
-                            print(f"     • Form fields: {len(docai_result.get('form_fields', {}))}")
+                            
+                            # Form Parser provides more structured data
+                            if self.form_parser:
+                                print(f"     • Form fields: {len(docai_result.get('form_fields', {}))}")
+                                print(f"     • Tables found: {len(docai_result.get('tables', []))}")
+                                print(f"     • Entities found: {len(docai_result.get('entities', []))}")
+                                print(f"     • Checkboxes: {len(docai_result.get('checkboxes', []))}")
+                            else:
+                                print(f"     • Entities found: {len(docai_result.get('entities', []))}")
+                                print(f"     • Tables found: {len(docai_result.get('tables', []))}")
+                                print(f"     • Form fields: {len(docai_result.get('form_fields', {}))}")
+                            
                             print(f"     • Confidence: {docai_result.get('confidence', 0):.1%}")
                         else:
                             print(f"  ⚠️ DocAI failed: {docai_result.get('error', 'Unknown error')}")
@@ -211,18 +248,18 @@ class BenchmarkExtractor:
                 # No DocAI available, all files need Claude Vision
                 failed_docai_files = other_files
             
-            # Process failed files with Claude Vision
+            # Process failed files with Claude Vision individually
             if failed_docai_files:
                 print("\n🔄 FALLBACK TO CLAUDE VISION (IMAGE EXTRACTION)")
                 print(f"  • Files to process: {len(failed_docai_files)}")
                 
+                # Process each file individually for proper result mapping
                 for file_path in failed_docai_files:
                     try:
                         file_size = Path(file_path).stat().st_size / 1024 / 1024  # MB
                         print(f"\n  📄 Processing: {Path(file_path).name} ({file_size:.2f} MB)")
                         
                         processed = self.preprocessor.preprocess_any_document(file_path)
-                        all_images.extend(processed.images)
                         
                         # Track dimensions
                         for idx, img in enumerate(processed.images):
@@ -231,70 +268,65 @@ class BenchmarkExtractor:
                                 print(f"     ⚠️  WARNING: Image exceeds 2000px limit!")
                         
                         print(f"  ✅ Generated {len(processed.images)} images")
+                        
+                        # Process this file's images individually
+                        if processed.images:
+                            # Extract from this file's images
+                            print(f"  🔄 Extracting from {len(processed.images)} images...")
+                            
+                            if self.use_files_api:
+                                # Process with Files API
+                                file_result = await self._extract_with_files_api([file_path])
+                            else:
+                                # Process with image extraction
+                                file_result = await self._extract_from_images(processed.images)
+                            
+                            # Store result with proper file path key
+                            if file_result:
+                                all_results[str(file_path)] = file_result
+                                print(f"  ✅ Claude Vision extraction completed for {Path(file_path).name}")
+                            else:
+                                print(f"  ⚠️ No result from Claude Vision for {Path(file_path).name}")
+                        
+                        # Collect images for summary if needed
+                        all_images.extend(processed.images)
                         total_pages += len(processed.images)
                         
                     except Exception as e:
                         print(f"  ❌ Failed to process {Path(file_path).name}: {e}")
+                        # Store error result with file path key
+                        all_results[str(file_path)] = {
+                            "error": str(e),
+                            "success": False
+                        }
         
-        # Process images if we have any
+        # Show summary if we processed images
         if all_images:
             print(f"\n📊 IMAGE PREPROCESSING SUMMARY:")
             print(f"  • Total images created: {len(all_images)}")
-            print(f"  • Average images per document: {len(all_images)/len(other_files):.1f}")
-        elif not excel_files:
+            print(f"  • Average images per document: {len(all_images)/len(other_files) if other_files else 0:.1f}")
+        elif not excel_files and not docai_results and not all_results:
             return {"error": "No documents could be processed"}
         
-        # Process non-Excel files with image extraction if we have any
-        if all_images:
-            print(f"\n🔧 EXTRACTION METHOD FOR NON-EXCEL FILES:")
-            if self.use_files_api:
-                print("  • Mode: Files API (Native PDF)")
-                print("  • Expected behavior: Higher accuracy, MORE tokens")
-                image_result = await self._extract_with_files_api(other_files)
-            else:
-                print("  • Mode: Image-based (Base64)")
-                print("  • Expected behavior: Good accuracy, FEWER tokens")
-                estimated_tokens = len(all_images) * 1500  # Rough estimate
-                print(f"  • Estimated tokens: ~{estimated_tokens:,}")
-                image_result = await self._extract_from_images(all_images)
-            
-            # Add image results to all_results
-            if image_result:
-                all_results['image_extraction'] = image_result
+        # Note: Individual file processing is now done in the fallback section above
+        # No need for batch processing here as each file is processed individually
         
         # Merge all results into final output
         result = {}
         
-        # Include DocAI results in all_results
+        # All results are now stored with file path keys
+        # Combine DocAI results and Claude Vision results (both in all_results)
         if docai_results:
-            all_results.update(docai_results)
+            result.update(docai_results)
         
-        # Clean approach: Return actual extraction results
-        if excel_files and not other_files:
-            # Return Excel results directly
-            result = all_results
-            
-        # If we only have non-Excel files
-        elif other_files and not excel_files:
-            # Combine DocAI results and Claude Vision results
-            if docai_results and all_results.get('image_extraction'):
-                # Both DocAI and Claude Vision were used
-                result = {**docai_results, **all_results.get('image_extraction', {})}
-            elif docai_results:
-                # Only DocAI was used
-                result = docai_results
-            else:
-                # Only Claude Vision was used
-                result = all_results.get('image_extraction', {})
-            
-        # If we have both Excel and other files
-        else:
-            # Combine all types of results
-            result = {
-                'excel_files': {k: v for k, v in all_results.items() 
-                              if k != 'image_extraction' and k not in docai_results},
-                'document_files': {**docai_results, **all_results.get('image_extraction', {})}
-            }
+        # Add any Claude Vision or Excel results from all_results
+        for file_path, file_result in all_results.items():
+            if file_path not in result:  # Don't overwrite DocAI results
+                result[file_path] = file_result
+        
+        # If no results were generated at all
+        if not result:
+            return {"error": "No documents could be processed"}
         
         # Add metadata
         processing_time = time.time() - start_time
@@ -308,11 +340,12 @@ class BenchmarkExtractor:
             'total_images': len(all_images),
             'model': self.model,
             'files_api_used': self.use_files_api,
-            'docai_enabled': self.general_processor is not None,
+            'docai_enabled': (self.form_parser is not None) or (self.general_processor is not None),
+            'docai_processor_type': 'form_parser' if self.form_parser else ('general_processor' if self.general_processor else 'none'),
             'total_file_size_mb': total_file_size / 1024 / 1024,
             'extraction_methods': {
                 'excel': 'hybrid_pandas_first' if excel_files else 'none',
-                'docai': f'general_processor ({len(docai_results)} files)' if docai_results else 'none',
+                'docai': f'{"form_parser" if self.form_parser else "general_processor"} ({len(docai_results)} files)' if docai_results else 'none',
                 'claude_vision': f'image_llm ({len(all_images)} images)' if all_images else 'none'
             }
         }
@@ -321,7 +354,8 @@ class BenchmarkExtractor:
         print(f"  • Processing time: {processing_time:.2f} seconds")
         print(f"  • Rate: {len(file_paths)/processing_time:.2f} docs/second")
         print(f"  • Excel files: {len(excel_files)} (hybrid extraction)")
-        print(f"  • Other files: {len(other_files)} (image extraction)")
+        print(f"  • DocAI files: {len(docai_results)} (form parser extraction)")
+        print(f"  • Claude Vision files: {len(failed_docai_files)} (image extraction)")
         print("="*70 + "\n")
         
         return result

@@ -4,7 +4,6 @@ Simplified extraction without overengineering - handles text, entities, and tabl
 """
 
 import asyncio
-import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -22,7 +21,6 @@ from ..config.docai_config import (
     get_mime_type
 )
 
-logger = logging.getLogger(__name__)
 
 
 class GeneralProcessorExtractor:
@@ -41,7 +39,7 @@ class GeneralProcessorExtractor:
     def _init_client(self):
         """Initialize Document AI client with proper configuration"""
         if not is_general_processor_configured():
-            logger.warning("General processor not configured - skipping initialization")
+            print("  ⚠️ WARNING: General processor not configured - skipping initialization")
             return
         
         try:
@@ -55,10 +53,10 @@ class GeneralProcessorExtractor:
                 location,
                 self.config["id"]
             )
-            logger.info(f"Initialized general processor: {self.processor_name}")
+            print(f"  ✅ Initialized DocAI General Processor: {self.processor_name}")
             
         except Exception as e:
-            logger.error(f"Failed to initialize DocAI client: {e}")
+            print(f"  ❌ ERROR: Failed to initialize DocAI client: {e}")
             self.client = None
     
     async def extract(self, file_path: Path) -> Dict[str, Any]:
@@ -128,11 +126,11 @@ class GeneralProcessorExtractor:
                 }
             }
             
-            logger.info(f"Successfully extracted data from {file_path.name}")
+            print(f"  ✅ Successfully extracted data from {file_path.name}")
             return result
             
         except GoogleAPICallError as e:
-            logger.error(f"API error processing {file_path.name}: {e}")
+            print(f"  ❌ ERROR: API error processing {file_path.name}: {e}")
             return {
                 "success": False,
                 "error": f"API error: {str(e)}",
@@ -140,7 +138,7 @@ class GeneralProcessorExtractor:
             }
             
         except Exception as e:
-            logger.error(f"Unexpected error processing {file_path.name}: {e}")
+            print(f"  ❌ ERROR: Unexpected error processing {file_path.name}: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -187,7 +185,7 @@ class GeneralProcessorExtractor:
             return result.document
             
         except Exception as e:
-            logger.error(f"Error in document processing: {e}")
+            print(f"  ❌ ERROR: Error in document processing: {e}")
             raise
     
     def _extract_entities(self, document: documentai.Document) -> List[Dict[str, Any]]:

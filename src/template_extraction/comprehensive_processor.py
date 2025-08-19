@@ -32,8 +32,10 @@ class ComprehensiveProcessor:
     def extractor(self):
         """Lazy load the benchmark extractor to avoid blocking during import."""
         if self._extractor is None:
+            print("  📦 Initializing BenchmarkExtractor for ComprehensiveProcessor...")
             from ..extraction_methods.multimodal_llm.providers import BenchmarkExtractor
             self._extractor = BenchmarkExtractor()
+            print(f"  📊 BenchmarkExtractor initialized: DocAI={self._extractor.form_parser is not None}")
         return self._extractor
     
     @property

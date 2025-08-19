@@ -57,7 +57,8 @@ class ComprehensiveEndToEndTest:
         print(f"\n  Application ID: {self.application_id}")
         print(f"  Start Time: {datetime.now().isoformat()}")
         
-        # Run all phases
+        # Run all phases (including new Phase 0 for DocAI validation)
+        await self.phase0_docai_validation()
         await self.phase1_initial_processing()
         await self.phase2_incremental_addition()
         await self.phase3_conflict_resolution()
@@ -71,6 +72,138 @@ class ComprehensiveEndToEndTest:
         
         return self.test_results
     
+    async def phase0_docai_validation(self):
+        """
+        Phase 0: DocAI Validation with Small Documents.
+        
+        Processes small documents (≤15 pages) first to ensure DocAI gets tested
+        before main processing phases that might fall back to Claude Vision.
+        """
+        print("\n" + "─"*70)
+        print("  PHASE 0: DocAI Validation with Small Documents")
+        print("─"*70)
+        
+        # Get available documents and categorize them
+        brigham_dir = Path("inputs/real/Brigham_dallas")
+        
+        if not brigham_dir.exists():
+            print("  ⚠️  Brigham Dallas directory not found, skipping Phase 0")
+            self.test_results["phases"]["phase0"] = {"skipped": True, "reason": "test_directory_not_found"}
+            return
+        
+        # Get all documents and categorize by processing method
+        all_files = list(brigham_dir.glob("*.pdf")) + list(brigham_dir.glob("*.xlsx"))
+        document_categories = self.categorize_documents_by_processing_method(all_files)
+        
+        docai_suitable = document_categories["docai_suitable"]
+        
+        if not docai_suitable:
+            print("  ⚠️  No small documents suitable for DocAI found, skipping Phase 0")
+            self.test_results["phases"]["phase0"] = {
+                "skipped": True, 
+                "reason": "no_small_documents",
+                "total_documents": len(all_files),
+                "document_breakdown": {k: len(v) for k, v in document_categories.items()}
+            }
+            return
+        
+        # Process up to 3 small documents to test DocAI
+        test_docs = docai_suitable[:3]
+        
+        print(f"\n  Phase 0: Processing {len(test_docs)} small documents for DocAI validation:")
+        for doc in test_docs:
+            file_size_mb = doc.stat().st_size / 1024 / 1024
+            print(f"    • {doc.name} ({file_size_mb:.1f} MB, suitable for DocAI)")
+        
+        print(f"\n  Document categorization:")
+        for category, docs in document_categories.items():
+            if docs:
+                print(f"    • {category}: {len(docs)} documents")
+        
+        # Process the small documents
+        start_time = time.time()
+        
+        results = await self.orchestrator.process_application(
+            application_id=self.application_id,
+            documents=test_docs,
+            target_banks=["live_oak"],  # Just one bank for validation
+            generate_spreadsheets=False  # Skip spreadsheets in Phase 0
+        )
+        
+        processing_time = time.time() - start_time
+        
+        # Validate DocAI usage in Phase 0
+        phase0_validation = self.validate_phase0_docai(results, test_docs)
+        
+        # Store remaining docs for later phases (excluding the ones we just processed)
+        self.phase0_processed_docs = test_docs
+        remaining_docs = [doc for doc in all_files if doc not in test_docs]
+        self.remaining_docs = remaining_docs
+        
+        self.test_results["phases"]["phase0"] = {
+            "documents_processed": len(test_docs),
+            "document_names": [doc.name for doc in test_docs],
+            "processing_time": round(processing_time, 2),
+            "docai_validation": phase0_validation,
+            "remaining_for_phase1": len(remaining_docs),
+            "document_categorization": {k: len(v) for k, v in document_categories.items()}
+        }
+        
+        print(f"\n  Phase 0 Summary:")
+        print(f"    ✅ Small documents processed: {len(test_docs)}")
+        print(f"    🤖 DocAI enabled: {phase0_validation['docai_enabled']}")
+        print(f"    📊 DocAI usage: {phase0_validation['docai_processed']} documents")
+        print(f"    🔄 Claude Vision usage: {phase0_validation['claude_vision_processed']} documents")
+        print(f"    ⏱️  Processing time: {processing_time:.2f} seconds")
+        print(f"    📋 Remaining for Phase 1: {len(remaining_docs)} documents")
+        
+        if phase0_validation['docai_processed'] > 0:
+            print(f"    ✅ DocAI validation successful!")
+        else:
+            print(f"    ⚠️  DocAI not used - all documents fell back to Claude Vision")
+    
+    def validate_phase0_docai(self, results: Dict[str, Any], processed_docs: List[Path]) -> Dict[str, Any]:
+        """Validate DocAI usage in Phase 0."""
+        validation = {
+            "docai_enabled": False,
+            "docai_processed": 0,
+            "claude_vision_processed": 0,
+            "total_documents": len(processed_docs),
+            "docai_success_rate": 0.0,
+            "structured_outputs_found": False,
+            "validation_quality": "unknown"
+        }
+        
+        # Extract DocAI metrics for Phase 0
+        docai_metrics = self.extract_docai_metrics(results)
+        
+        validation["docai_enabled"] = docai_metrics["docai_enabled"]
+        validation["docai_processed"] = docai_metrics["docai_processed_count"]
+        validation["claude_vision_processed"] = docai_metrics["claude_vision_processed_count"]
+        
+        # Calculate success rate
+        if validation["total_documents"] > 0:
+            validation["docai_success_rate"] = (validation["docai_processed"] / validation["total_documents"]) * 100
+        
+        # Validate structured outputs if DocAI was used
+        if validation["docai_processed"] > 0:
+            docai_output_validation = self._validate_docai_outputs_in_extractions()
+            validation["structured_outputs_found"] = docai_output_validation["has_structured_outputs"]
+            
+            # Assess validation quality
+            if (validation["docai_success_rate"] >= 80 and 
+                validation["structured_outputs_found"]):
+                validation["validation_quality"] = "excellent"
+            elif (validation["docai_success_rate"] >= 50 and 
+                  validation["docai_processed"] > 0):
+                validation["validation_quality"] = "good"
+            elif validation["docai_processed"] > 0:
+                validation["validation_quality"] = "partial"
+            else:
+                validation["validation_quality"] = "failed"
+        
+        return validation
+    
     async def phase1_initial_processing(self):
         """
         Phase 1: Process initial batch of documents and create master JSON.
@@ -79,32 +212,38 @@ class ComprehensiveEndToEndTest:
         print("  PHASE 1: Initial Document Processing")
         print("─"*70)
         
-        # Use Brigham Dallas documents - get ALL available files
-        brigham_dir = Path("inputs/real/Brigham_dallas")
+        # Use remaining documents from Phase 0, or load all if Phase 0 was skipped
+        if hasattr(self, 'remaining_docs') and self.remaining_docs:
+            print("  📋 Using remaining documents from Phase 0")
+            all_docs = self.remaining_docs
+        else:
+            print("  📋 Phase 0 was skipped, loading all documents")
+            # Use Brigham Dallas documents - get ALL available files
+            brigham_dir = Path("inputs/real/Brigham_dallas")
+            
+            if not brigham_dir.exists():
+                print("  ❌ Brigham Dallas directory not found")
+                self.test_results["errors"].append("Test directory not found")
+                return
+            
+            # Get ALL PDFs and Excel files for comprehensive testing
+            all_pdfs = list(brigham_dir.glob("*.pdf"))
+            all_excel = list(brigham_dir.glob("*.xlsx"))
+            all_docs = all_pdfs + all_excel
         
-        if not brigham_dir.exists():
-            print("  ❌ Brigham Dallas directory not found")
-            self.test_results["errors"].append("Test directory not found")
-            return
-        
-        # Get ALL PDFs and Excel files for comprehensive testing
-        all_pdfs = list(brigham_dir.glob("*.pdf"))
-        all_excel = list(brigham_dir.glob("*.xlsx"))
-        all_docs = all_pdfs + all_excel
-        
-        if len(all_docs) < 5:
-            print(f"  ⚠️  Only {len(all_docs)} documents found, expected more")
+        if len(all_docs) < 3:
+            print(f"  ⚠️  Only {len(all_docs)} documents remaining for Phase 1")
             print(f"  Available: {[doc.name for doc in all_docs]}")
         
-        # Process first batch (5-6 documents to avoid rate limits in Phase 1)
-        batch1_docs = all_docs[:3]
+        # Process first batch (3-4 documents for Phase 1)
+        batch1_docs = all_docs[:3] if len(all_docs) >= 3 else all_docs
         
-        print(f"\n  Phase 1: Processing {len(batch1_docs)} documents (first batch):")
+        print(f"\n  Phase 1: Processing {len(batch1_docs)} documents:")
         for doc in batch1_docs:
             print(f"    • {doc.name}")
         
         # Store remaining docs for incremental phases
-        self.remaining_docs = all_docs[3:]
+        self.remaining_docs = all_docs[len(batch1_docs):]
         print(f"\n  Remaining for incremental phases: {len(self.remaining_docs)} documents")
         
         existing_docs = batch1_docs
@@ -379,13 +518,18 @@ class ComprehensiveEndToEndTest:
                     print(f"      • {field_path}: {value_str}")
     
     def validate_phase1(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate Phase 1 results."""
+        """Validate Phase 1 results including DocAI-specific validation."""
         validation = {
             "master_exists": False,
             "field_count": 0,
             "form_count": 0,
             "pdf_count": 0,
-            "spreadsheet_count": 0
+            "spreadsheet_count": 0,
+            # DocAI-specific validation
+            "docai_metrics": {},
+            "docai_integration_working": False,
+            "hybrid_processing_validated": False,
+            "extraction_method_breakdown": {}
         }
         
         # Check master data
@@ -411,7 +555,149 @@ class ComprehensiveEndToEndTest:
                 if r.get("status") == "success"
             )
         
+        # DocAI-specific validation
+        print("  🤖 Validating DocAI integration...")
+        docai_metrics = self.extract_docai_metrics(results)
+        validation["docai_metrics"] = docai_metrics
+        
+        # Check if DocAI integration is working
+        if docai_metrics["docai_enabled"]:
+            validation["docai_integration_working"] = True
+            print(f"    ✅ DocAI enabled: {docai_metrics['docai_processor_type']}")
+        else:
+            print(f"    ❌ DocAI not enabled")
+        
+        # Validate hybrid processing (DocAI + Claude Vision fallback)
+        total_processed = docai_metrics["docai_processed_count"] + docai_metrics["claude_vision_processed_count"]
+        if total_processed > 0:
+            validation["hybrid_processing_validated"] = True
+            print(f"    ✅ Hybrid processing working: {docai_metrics['docai_processed_count']} DocAI + {docai_metrics['claude_vision_processed_count']} Claude Vision")
+        else:
+            print(f"    ❌ No documents processed by either method")
+        
+        # Create extraction method breakdown
+        validation["extraction_method_breakdown"] = {
+            "docai_ratio": docai_metrics["docai_usage_ratio"],
+            "claude_vision_ratio": docai_metrics["claude_vision_usage_ratio"],
+            "total_documents": docai_metrics["total_documents"],
+            "cost_estimate": docai_metrics["processing_cost_estimate"]
+        }
+        
+        # Validate DocAI-specific outputs if any documents were processed by DocAI
+        if docai_metrics["docai_processed_count"] > 0:
+            print("  🔍 Validating DocAI-specific outputs...")
+            docai_output_validation = self._validate_docai_outputs_in_extractions()
+            validation["docai_output_validation"] = docai_output_validation
+            
+            if docai_output_validation["total_docai_extractions"] > 0:
+                print(f"    ✅ DocAI outputs validated: {docai_output_validation['total_docai_extractions']} extractions")
+                print(f"    📊 Structured data quality: {docai_output_validation['avg_quality']}")
+            else:
+                print(f"    ⚠️  No DocAI-specific outputs found in extractions")
+        
         return validation
+    
+    def _validate_docai_outputs_in_extractions(self) -> Dict[str, Any]:
+        """Validate DocAI-specific outputs in individual extraction files."""
+        validation = {
+            "total_docai_extractions": 0,
+            "has_structured_outputs": False,
+            "form_fields_found": 0,
+            "tables_found": 0,
+            "entities_found": 0,
+            "avg_quality": "unknown",
+            "quality_scores": []
+        }
+        
+        app_dir = Path(f"outputs/applications/{self.application_id}")
+        extraction_dir = app_dir / "part1_document_processing" / "extractions"
+        
+        if not extraction_dir.exists():
+            return validation
+        
+        docai_extractions = 0
+        total_quality_scores = []
+        
+        for extraction_file in extraction_dir.glob("*_extraction.json"):
+            try:
+                with open(extraction_file, 'r') as f:
+                    extraction_data = json.load(f)
+                
+                # Check if this extraction was processed by DocAI
+                metadata = extraction_data.get("metadata", {})
+                extraction_method = metadata.get("extraction_method", "")
+                
+                # Look for DocAI indicators in metadata
+                if "docai" in extraction_method.lower() or self._has_docai_indicators(extraction_data):
+                    docai_extractions += 1
+                    
+                    # Validate DocAI-specific structured outputs
+                    docai_validation = self.validate_docai_specific_outputs(extraction_data)
+                    
+                    if docai_validation["has_form_fields"] or docai_validation["has_tables"]:
+                        validation["has_structured_outputs"] = True
+                        validation["form_fields_found"] += docai_validation["field_count"]
+                        validation["tables_found"] += docai_validation["table_count"]
+                        validation["entities_found"] += docai_validation["entity_count"]
+                        
+                        # Score quality based on structured output richness
+                        quality_score = self._calculate_extraction_quality_score(docai_validation)
+                        total_quality_scores.append(quality_score)
+            
+            except Exception as e:
+                print(f"    ⚠️  Error validating {extraction_file}: {e}")
+        
+        validation["total_docai_extractions"] = docai_extractions
+        
+        if total_quality_scores:
+            avg_score = sum(total_quality_scores) / len(total_quality_scores)
+            validation["quality_scores"] = total_quality_scores
+            
+            if avg_score >= 0.7:
+                validation["avg_quality"] = "high"
+            elif avg_score >= 0.4:
+                validation["avg_quality"] = "medium"
+            else:
+                validation["avg_quality"] = "low"
+        
+        return validation
+    
+    def _has_docai_indicators(self, extraction_data: Dict[str, Any]) -> bool:
+        """Check if extraction data has indicators of DocAI processing."""
+        # Look for DocAI-specific patterns in the data structure
+        metadata = extraction_data.get("metadata", {})
+        
+        # Check metadata for DocAI indicators
+        if "extraction_metadata" in metadata:
+            extract_meta = metadata["extraction_metadata"]
+            if isinstance(extract_meta, dict):
+                return extract_meta.get("docai_processed", 0) > 0
+        
+        # Check for DocAI-style structured data
+        return (self._has_docai_form_fields(extraction_data) or 
+                self._has_docai_tables(extraction_data) or 
+                self._has_docai_entities(extraction_data))
+    
+    def _calculate_extraction_quality_score(self, docai_validation: Dict[str, Any]) -> float:
+        """Calculate a quality score for DocAI extraction based on structured output richness."""
+        score = 0.0
+        
+        # Score based on presence of different types of structured data
+        if docai_validation["has_form_fields"]:
+            score += 0.4
+        if docai_validation["has_tables"]:
+            score += 0.3
+        if docai_validation["has_entities"]:
+            score += 0.2
+        
+        # Bonus for high field counts
+        field_count = docai_validation["field_count"]
+        if field_count > 20:
+            score += 0.1
+        elif field_count > 10:
+            score += 0.05
+        
+        return min(score, 1.0)  # Cap at 1.0
     
     def validate_complete_application(self):
         """Validate the complete application outputs including Phase 1 & 2 features."""
@@ -434,7 +720,14 @@ class ComprehensiveEndToEndTest:
             "phase2_classification": False,
             "field_mapping_fix": False,
             "classification_types": [],
-            "overall_confidence": 0.0
+            "overall_confidence": 0.0,
+            # DocAI Integration Validations
+            "docai_integration_enabled": False,
+            "docai_processing_functional": False,
+            "hybrid_fallback_working": False,
+            "docai_structured_outputs": False,
+            "docai_vs_claude_ratio": {"docai": 0, "claude": 0},
+            "processing_cost_analysis": {}
         }
         
         # Check master JSON and validate Phase 1 & 2 features
@@ -460,6 +753,30 @@ class ComprehensiveEndToEndTest:
                 validations["phase1_confidence_scoring"] = True
                 confidence = metadata["confidence_analysis"]
                 validations["overall_confidence"] = confidence.get("overall_confidence", 0.0)
+        
+        # DocAI Integration Validation
+        print("  🤖 Validating DocAI integration in final application...")
+        docai_metrics = self.extract_docai_metrics({"part1_results": {}})  # Trigger extraction from files
+        
+        # Check if DocAI is enabled and functional
+        validations["docai_integration_enabled"] = docai_metrics["docai_enabled"]
+        validations["docai_processing_functional"] = docai_metrics["docai_processed_count"] > 0
+        
+        # Check hybrid fallback functionality
+        total_processed = docai_metrics["docai_processed_count"] + docai_metrics["claude_vision_processed_count"]
+        validations["hybrid_fallback_working"] = total_processed > 0 and docai_metrics["claude_vision_processed_count"] > 0
+        
+        # Store processing ratios and cost analysis
+        validations["docai_vs_claude_ratio"] = {
+            "docai": docai_metrics["docai_processed_count"],
+            "claude": docai_metrics["claude_vision_processed_count"]
+        }
+        validations["processing_cost_analysis"] = docai_metrics["processing_cost_estimate"]
+        
+        # Validate DocAI structured outputs
+        if docai_metrics["docai_processed_count"] > 0:
+            docai_output_validation = self._validate_docai_outputs_in_extractions()
+            validations["docai_structured_outputs"] = docai_output_validation["has_structured_outputs"]
         
         # Count extraction files
         extraction_dir = app_dir / "part1_document_processing" / "extractions"
@@ -513,6 +830,30 @@ class ComprehensiveEndToEndTest:
         if validations['phase2_classification'] and validations['classification_types']:
             print(f"      • Document type: {validations['classification_types'][0]}")
         print(f"    {'✅' if validations['field_mapping_fix'] else '❌'} Phase 1: Field Mapping Fix (coverage > 0)")
+        
+        # DocAI Integration Validations
+        print("\n  DocAI Integration Validation:")
+        print(f"    {'✅' if validations['docai_integration_enabled'] else '❌'} DocAI Integration Enabled")
+        print(f"    {'✅' if validations['docai_processing_functional'] else '❌'} DocAI Processing Functional")
+        print(f"    {'✅' if validations['hybrid_fallback_working'] else '❌'} Hybrid Fallback Working")
+        print(f"    {'✅' if validations['docai_structured_outputs'] else '❌'} DocAI Structured Outputs")
+        
+        # DocAI Processing Breakdown
+        docai_count = validations['docai_vs_claude_ratio']['docai']
+        claude_count = validations['docai_vs_claude_ratio']['claude']
+        total_docs = docai_count + claude_count
+        
+        if total_docs > 0:
+            print(f"\n  Processing Method Breakdown:")
+            print(f"    🤖 DocAI processed: {docai_count} documents ({docai_count/total_docs*100:.1f}%)")
+            print(f"    👁️  Claude Vision processed: {claude_count} documents ({claude_count/total_docs*100:.1f}%)")
+            
+            # Cost analysis
+            costs = validations['processing_cost_analysis']
+            if costs.get('total_cost_usd', 0) > 0:
+                print(f"    💰 Estimated processing cost: ${costs['total_cost_usd']:.4f}")
+                print(f"      • DocAI cost: ${costs['docai_cost_usd']:.4f}")
+                print(f"      • Claude Vision cost: ${costs['claude_vision_cost_usd']:.4f}")
         
         print(f"\n  Extraction Quality Analysis:")
         print(f"    📄 Total documents: {quality_report['total_documents']}")
@@ -576,6 +917,8 @@ class ComprehensiveEndToEndTest:
         print(f"    {'✅' if validations.get('phase1_confidence_scoring') else '❌'} Confidence Scoring (Phase 1)")
         print(f"    {'✅' if validations.get('phase2_classification') else '❌'} Document Classification (Phase 2)")
         print(f"    {'✅' if validations.get('field_mapping_fix') else '❌'} Field Mapping Fix (Phase 1)")
+        print(f"    {'✅' if validations.get('docai_integration_enabled') else '❌'} DocAI Integration (Hybrid Processing)")
+        print(f"    {'✅' if validations.get('hybrid_fallback_working') else '❌'} DocAI → Claude Vision Fallback")
         
         # Extraction quality summary
         if "extraction_quality" in self.test_results:
@@ -725,6 +1068,275 @@ class ComprehensiveEndToEndTest:
                 quality_report["document_details"].append(doc_info)
         
         return quality_report
+    
+    def extract_docai_metrics(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract DocAI-specific metrics from pipeline results."""
+        docai_metrics = {
+            "docai_enabled": False,
+            "docai_processor_type": "none",
+            "docai_processed_count": 0,
+            "claude_vision_processed_count": 0,
+            "total_documents": 0,
+            "docai_usage_ratio": 0.0,
+            "claude_vision_usage_ratio": 0.0,
+            "processing_cost_estimate": {
+                "docai_cost_usd": 0.0,
+                "claude_vision_cost_usd": 0.0,
+                "total_cost_usd": 0.0
+            },
+            "extraction_quality": {
+                "docai_avg_confidence": 0.0,
+                "fallback_triggers": 0,
+                "processing_errors": 0
+            }
+        }
+        
+        # Check if we have Part 1 results with metadata
+        if "part1_results" not in results:
+            return docai_metrics
+        
+        # Look for metadata in individual extraction files
+        app_dir = Path(f"outputs/applications/{self.application_id}")
+        extraction_dir = app_dir / "part1_document_processing" / "extractions"
+        
+        total_docai = 0
+        total_claude = 0
+        total_docs = 0
+        docai_enabled = False
+        processor_type = "none"
+        
+        if extraction_dir.exists():
+            for extraction_file in extraction_dir.glob("*_extraction.json"):
+                total_docs += 1
+                
+                try:
+                    with open(extraction_file, 'r') as f:
+                        extraction_data = json.load(f)
+                    
+                    # Check for BenchmarkExtractor metadata
+                    metadata = extraction_data.get("metadata", {})
+                    if "extraction_metadata" in metadata:
+                        extract_meta = metadata["extraction_metadata"]
+                        if isinstance(extract_meta, dict):
+                            total_docai += extract_meta.get("docai_processed", 0)
+                            total_claude += extract_meta.get("claude_vision_processed", 0)
+                            docai_enabled = extract_meta.get("docai_enabled", False)
+                            processor_type = extract_meta.get("docai_processor_type", "none")
+                except Exception as e:
+                    print(f"  ⚠️  Could not extract DocAI metrics from {extraction_file}: {e}")
+        
+        # Calculate ratios and costs
+        if total_docs > 0:
+            docai_metrics["docai_processed_count"] = total_docai
+            docai_metrics["claude_vision_processed_count"] = total_claude
+            docai_metrics["total_documents"] = total_docs
+            docai_metrics["docai_enabled"] = docai_enabled
+            docai_metrics["docai_processor_type"] = processor_type
+            
+            # Calculate usage ratios
+            docai_metrics["docai_usage_ratio"] = (total_docai / total_docs) * 100
+            docai_metrics["claude_vision_usage_ratio"] = (total_claude / total_docs) * 100
+            
+            # Estimate costs (based on research: DocAI Form Parser $30/1000 pages, Claude Vision ~$0.01-0.02/doc)
+            docai_cost = (total_docai * 30) / 1000  # Assuming 1 doc ≈ 1 page for cost estimation
+            claude_cost = total_claude * 0.015  # Average estimate
+            
+            docai_metrics["processing_cost_estimate"] = {
+                "docai_cost_usd": round(docai_cost, 4),
+                "claude_vision_cost_usd": round(claude_cost, 4),
+                "total_cost_usd": round(docai_cost + claude_cost, 4)
+            }
+        
+        return docai_metrics
+    
+    def validate_docai_specific_outputs(self, extraction_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate DocAI-specific structured outputs (form fields, tables, entities)."""
+        validation = {
+            "has_form_fields": False,
+            "has_tables": False,
+            "has_entities": False,
+            "confidence_scores_present": False,
+            "avg_confidence": 0.0,
+            "field_count": 0,
+            "table_count": 0,
+            "entity_count": 0,
+            "structured_output_quality": "unknown"
+        }
+        
+        # DocAI typically structures data differently than Claude Vision
+        # Look for DocAI-specific patterns in the extraction data
+        
+        # Check for form fields (key-value pairs with confidence)
+        if self._has_docai_form_fields(extraction_data):
+            validation["has_form_fields"] = True
+            validation["field_count"] = self._count_form_fields(extraction_data)
+        
+        # Check for table structures
+        if self._has_docai_tables(extraction_data):
+            validation["has_tables"] = True
+            validation["table_count"] = self._count_tables(extraction_data)
+        
+        # Check for entity extraction
+        if self._has_docai_entities(extraction_data):
+            validation["has_entities"] = True
+            validation["entity_count"] = self._count_entities(extraction_data)
+        
+        # Assess overall quality
+        if validation["field_count"] > 10 or validation["table_count"] > 0:
+            validation["structured_output_quality"] = "high"
+        elif validation["field_count"] > 5:
+            validation["structured_output_quality"] = "medium"
+        elif validation["field_count"] > 0:
+            validation["structured_output_quality"] = "low"
+        
+        return validation
+    
+    def _has_docai_form_fields(self, data: Dict[str, Any]) -> bool:
+        """Check if data contains DocAI-style form fields."""
+        # DocAI often produces structured key-value pairs
+        # Look for patterns that suggest DocAI extraction
+        if not isinstance(data, dict):
+            return False
+        
+        # Check for nested structures with confidence or structured format
+        for key, value in data.items():
+            if isinstance(value, dict):
+                # Look for confidence scores or structured field data
+                if "confidence" in value or "normalized_value" in value:
+                    return True
+                # Recurse into nested structures
+                if self._has_docai_form_fields(value):
+                    return True
+        
+        return False
+    
+    def _has_docai_tables(self, data: Dict[str, Any]) -> bool:
+        """Check if data contains DocAI-style table structures."""
+        # Look for table-like structures with headers and rows
+        def check_for_tables(obj):
+            if isinstance(obj, dict):
+                # Look for table indicators
+                if "headers" in obj and "rows" in obj:
+                    return True
+                if "table" in str(obj).lower() and isinstance(obj, dict) and len(obj) > 3:
+                    return True
+                # Recurse
+                return any(check_for_tables(v) for v in obj.values())
+            elif isinstance(obj, list) and len(obj) > 2:
+                # Look for list of similar structured objects (table rows)
+                if all(isinstance(item, dict) and len(item) > 2 for item in obj[:3]):
+                    return True
+            return False
+        
+        return check_for_tables(data)
+    
+    def _has_docai_entities(self, data: Dict[str, Any]) -> bool:
+        """Check if data contains DocAI-style entity extraction."""
+        # Look for named entities or classified data
+        entity_indicators = ["entity", "entities", "person", "organization", "location", "date", "money"]
+        
+        def check_for_entities(obj, depth=0):
+            if depth > 3:  # Prevent deep recursion
+                return False
+            
+            if isinstance(obj, dict):
+                # Check if any keys suggest entity extraction
+                for key in obj.keys():
+                    if any(indicator in key.lower() for indicator in entity_indicators):
+                        return True
+                # Recurse into values
+                return any(check_for_entities(v, depth + 1) for v in obj.values())
+            return False
+        
+        return check_for_entities(data)
+    
+    def _count_form_fields(self, data: Dict[str, Any]) -> int:
+        """Count form fields in the data."""
+        count = 0
+        
+        def count_fields(obj, depth=0):
+            nonlocal count
+            if depth > 5:  # Prevent deep recursion
+                return
+            
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if isinstance(value, (str, int, float, bool)) and value not in [None, "", [], {}]:
+                        count += 1
+                    elif isinstance(value, (dict, list)):
+                        count_fields(value, depth + 1)
+        
+        count_fields(data)
+        return count
+    
+    def _count_tables(self, data: Dict[str, Any]) -> int:
+        """Count table structures in the data."""
+        count = 0
+        
+        def count_table_structures(obj):
+            nonlocal count
+            if isinstance(obj, dict):
+                # Look for table-like structures
+                if ("headers" in obj and "rows" in obj) or ("table" in str(obj).lower() and len(obj) > 3):
+                    count += 1
+                # Recurse
+                for value in obj.values():
+                    count_table_structures(value)
+        
+        count_table_structures(data)
+        return count
+    
+    def _count_entities(self, data: Dict[str, Any]) -> int:
+        """Count entities in the data."""
+        # For simplicity, count distinct non-null values that might be entities
+        entity_count = 0
+        
+        def count_potential_entities(obj, depth=0):
+            nonlocal entity_count
+            if depth > 3:
+                return
+            
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    # Look for entity-like data
+                    if isinstance(value, str) and len(value) > 2 and len(value) < 100:
+                        entity_count += 1
+                    elif isinstance(value, (dict, list)):
+                        count_potential_entities(value, depth + 1)
+        
+        count_potential_entities(data)
+        return min(entity_count, 50)  # Cap at reasonable number
+    
+    def categorize_documents_by_processing_method(self, documents: List[Path]) -> Dict[str, List[Path]]:
+        """Categorize documents by expected processing method based on file size."""
+        categorized = {
+            "docai_suitable": [],      # ≤15 pages (≤1.5MB estimate)
+            "claude_suitable": [],     # >15 pages (>1.5MB estimate)
+            "excel_files": [],         # Excel files (handled by HybridExcelExtractor)
+            "unknown": []
+        }
+        
+        for doc in documents:
+            if not doc.exists():
+                categorized["unknown"].append(doc)
+                continue
+            
+            # Check file extension
+            if doc.suffix.lower() in ['.xlsx', '.xls']:
+                categorized["excel_files"].append(doc)
+            elif doc.suffix.lower() in ['.pdf', '.png', '.jpg', '.jpeg', '.tiff']:
+                # Estimate page count from file size (~100KB per page for PDFs)
+                file_size_mb = doc.stat().st_size / 1024 / 1024
+                
+                # DocAI Form Parser has 15-page limit
+                if file_size_mb <= 1.5:  # Rough estimate for ≤15 pages
+                    categorized["docai_suitable"].append(doc)
+                else:
+                    categorized["claude_suitable"].append(doc)
+            else:
+                categorized["unknown"].append(doc)
+        
+        return categorized
 
 
 async def main():
