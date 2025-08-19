@@ -213,16 +213,16 @@ class FormParserExtractor:
         try:
             # Calculate appropriate timeout based on file size
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
-            base_timeout = PROCESSING_CONFIG.get("timeout", 120)
             
-            # Add extra time for large documents (30 seconds per MB over 1MB)
-            if file_size_mb > 1.0:
-                extra_timeout = int((file_size_mb - 1.0) * 30)
-                timeout = base_timeout + extra_timeout + 60  # Base + size-based + buffer
-            else:
-                timeout = base_timeout + 60  # Just add buffer for small files
+            # More reasonable timeout: 30s base + 10s per MB
+            base_timeout = 30  # Reduced from 120
+            extra_timeout = int(file_size_mb * 10)
+            timeout = base_timeout + extra_timeout
             
-            print(f"     • Processing document with {timeout}s total timeout (file: {file_size_mb:.1f}MB)")
+            # Cap at 60 seconds to fail fast and use fallback
+            timeout = min(timeout, 60)
+            
+            print(f"     • Processing document with {timeout}s timeout (file: {file_size_mb:.1f}MB)")
             
             # Run the sync method in executor with timeout
             loop = asyncio.get_running_loop()
@@ -241,12 +241,14 @@ class FormParserExtractor:
             return document
             
         except asyncio.TimeoutError:
-            print(f"  ❌ ERROR: DocAI processing timeout for {file_path.name} (>{timeout}s)")
-            raise
+            print(f"  ⚠️ DocAI processing timeout for {file_path.name} (>{timeout}s)")
+            # Return None to trigger fallback instead of raising
+            return None
             
         except Exception as e:
-            print(f"  ❌ ERROR: Error in async document processing for {file_path.name}: {e}")
-            raise
+            print(f"  ⚠️ Error in async document processing for {file_path.name}: {e}")
+            # Return None to trigger fallback instead of raising
+            return None
     
     @retry.Retry(
         initial=PROCESSING_CONFIG["retry_initial"],
@@ -328,8 +330,8 @@ class FormParserExtractor:
             print("     • Waiting for DocAI response...")
             
             # Process document with explicit timeout to prevent hanging
-            timeout_seconds = min(30, PROCESSING_CONFIG.get("timeout", 30))  # Force max 30s
-            print(f"     • Using timeout: {timeout_seconds} seconds")
+            timeout_seconds = 30  # Fixed 30s timeout for individual API call
+            print(f"     • Using API timeout: {timeout_seconds} seconds")
             result = self.client.process_document(request=request, timeout=timeout_seconds)
             
             print(f"     • DocAI response received successfully")

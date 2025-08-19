@@ -28,3 +28,7 @@ tabula-py>=2.8.0  # For extracting tables from PDFs
 
 # Additional Excel support
 xlsxwriter>=3.1.0  # For advanced Excel writing capabilities
+
+# Google Document AI integration (optional - will work without it)
+# Uncomment the following line to enable Document AI features:
+# google-cloud-documentai>=2.20.0

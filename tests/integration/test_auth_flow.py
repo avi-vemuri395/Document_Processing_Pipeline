@@ -55,14 +55,17 @@ def test_authentication():
         if hasattr(credentials, 'refresh_token'):
             print(f"  User credentials (from gcloud auth)")
             
-    except DefaultCredentialsError as e:
-        print(f"  ❌ No default credentials found: {e}")
-        print("\n  To fix this, run ONE of the following:")
-        print("  Option 1: gcloud auth application-default login")
-        print("  Option 2: Set GOOGLE_APPLICATION_CREDENTIALS to service account key file")
-        
-    except ImportError:
-        print("  ❌ google-auth library not installed")
+    except Exception as e:
+        if 'DefaultCredentialsError' in str(type(e)):
+            print(f"  ❌ No default credentials found: {e}")
+            print("\n  To fix this, run ONE of the following:")
+            print("  Option 1: gcloud auth application-default login")
+            print("  Option 2: Set GOOGLE_APPLICATION_CREDENTIALS to service account key file")
+        elif 'ModuleNotFoundError' in str(type(e)):
+            print("  ❌ google-auth library not installed")
+            print("  Run: pip install google-auth")
+        else:
+            print(f"  ❌ Error checking credentials: {e}")
         
     # 3. Check if Document AI client can be initialized
     print("\n3. DOCUMENT AI CLIENT INITIALIZATION:")

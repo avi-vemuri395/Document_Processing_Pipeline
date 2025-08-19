@@ -26,6 +26,7 @@ from ..core.universal_preprocessor import UniversalPreprocessor
 from .files_client import FilesAPIClient  # TEST: Files API integration
 from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid Excel extraction
 from .rate_limiter import RateLimitHandler  # Rate limiting with exponential backoff
+from ..utils.document_classifier import DocumentClassifier, DocumentCategory  # Document classification
 
 # Import DocAI support (conditional to avoid failures if not configured)
 try:
@@ -49,7 +50,8 @@ NARRATIVE_DOCUMENT_TYPES = {
     'BUSINESS_PLAN', 'MANAGEMENT_BIOS', 'LETTER_OF_INTENT',
     'RESUME_OR_MANAGEMENT_BIOS', 'PERSONAL_GUARANTEE',
     'BUSINESS_PLAN_OR_EXECUTIVE_SUMMARY', 'COVER_LETTER',
-    'ARTICLES_OF_INCORPORATION', 'FRANCHISE_AGREEMENT'
+    'ARTICLES_OF_INCORPORATION', 'FRANCHISE_AGREEMENT',
+    'ORG_CHART'  # FIX: Added missing ORG_CHART to narrative types
 }
 
 STRUCTURED_DOCUMENT_TYPES = {
@@ -128,6 +130,10 @@ class BenchmarkExtractor:
         # Initialize rate limiter for API calls
         self.rate_limiter = RateLimitHandler()
         print("  ✅ Rate limiter initialized")
+        
+        # Initialize document classifier for intelligent routing
+        self.classifier = DocumentClassifier()
+        print("  ✅ Document classifier initialized")
     
     @property
     def client(self):
@@ -240,23 +246,53 @@ class BenchmarkExtractor:
                 print(f"\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
                 print(f"  • Processor: {processor_type} ({pricing})")
                 
-                # Smart routing based on document type
+                # Enhanced smart routing using document classifier
                 files_for_docai = []
                 for i, file_path in enumerate(other_files):
                     doc_type = document_types[i] if document_types and i < len(document_types) else None
+                    file_path_obj = Path(file_path)
                     
-                    if doc_type and doc_type in NARRATIVE_DOCUMENT_TYPES:
-                        # Skip DocAI for narrative documents - go straight to Claude
-                        print(f"\n  📝 Narrative document detected: {doc_type}")
-                        print(f"     File: {Path(file_path).name}")
-                        print(f"     → Routing directly to Claude Vision (cost optimization)")
+                    # Step 1: Classify document using multiple strategies
+                    category, confidence = DocumentCategory.UNKNOWN, 0.0
+                    
+                    # Try loan application type mapping first (highest confidence)
+                    if doc_type:
+                        category, confidence = self.classifier.map_loan_application_type(doc_type)
+                        print(f"\n  🏷️ Document type provided: {doc_type}")
+                    
+                    # If low confidence or unknown, try heuristic classification
+                    if confidence < 0.7:
+                        try:
+                            # Try to extract text for heuristic classification (quick and cheap)
+                            with open(file_path_obj, 'rb') as f:
+                                # Simple text extraction attempt (first 5KB for speed)
+                                sample = f.read(5000)
+                                text_sample = sample.decode('utf-8', errors='ignore')
+                                heuristic_category, heuristic_confidence = self.classifier.classify_from_text_heuristics(text_sample)
+                                
+                                if heuristic_confidence > confidence:
+                                    category = heuristic_category
+                                    confidence = heuristic_confidence
+                                    print(f"     🔍 Heuristic classification: {category.value} ({confidence:.0%})")
+                        except:
+                            pass  # Fall back to default routing if text extraction fails
+                    
+                    # Step 2: Route based on classification
+                    should_use_docai = self.classifier.should_use_docai(category, confidence)
+                    
+                    if not should_use_docai:
+                        # Skip DocAI for narrative/visual documents with high confidence
+                        print(f"\n  📝 {category.value.replace('_', ' ').title()} detected")
+                        print(f"     File: {file_path_obj.name}")
+                        print(f"     Confidence: {confidence:.0%}")
+                        print(f"     → Routing directly to Claude Vision (optimal for this type)")
                         failed_docai_files.append(file_path)
                     else:
                         files_for_docai.append(file_path)
-                        if doc_type:
-                            print(f"\n  📊 Structured document detected: {doc_type}")
-                            print(f"     File: {Path(file_path).name}")
-                            print(f"     → Trying DocAI first for optimal extraction")
+                        print(f"\n  📊 {category.value.replace('_', ' ').title()} detected")
+                        print(f"     File: {file_path_obj.name}")
+                        print(f"     Confidence: {confidence:.0%}")
+                        print(f"     → Trying DocAI first for structured extraction")
                 
                 for file_path in files_for_docai:
                     file_path = Path(file_path)
@@ -288,6 +324,12 @@ class BenchmarkExtractor:
                                 print(f"     • Form fields: {len(docai_result.get('form_fields', {}))}")
                             
                             print(f"     • Confidence: {docai_result.get('confidence', 0):.1%}")
+                            
+                            # Infer document type from DocAI results for metadata
+                            inferred_category, inferred_confidence = self.classifier.classify_from_docai_result(docai_result)
+                            docai_result['inferred_document_type'] = inferred_category.value
+                            docai_result['inferred_confidence'] = inferred_confidence
+                            print(f"     • Inferred type: {inferred_category.value} ({inferred_confidence:.0%})")
                         else:
                             print(f"  ⚠️ DocAI failed: {docai_result.get('error', 'Unknown error')}")
                             failed_docai_files.append(file_path)
@@ -475,6 +517,12 @@ class BenchmarkExtractor:
 
         # Optimized extraction prompt for maximum accuracy
         prompt = """Extract ALL information from these loan application documents. Focus on ACCURACY and COMPLETENESS.
+
+## CRITICAL FIELDS TO EXTRACT (NEVER SKIP):
+- SSN (Social Security Number) - Look for xxx-xx-xxxx patterns
+- Date of Birth - Look for DOB, birth date, born on
+- Marital Status - Single, Married, Divorced, Widowed
+- Interest Rates - Look for %, APR, rate on all loans/mortgages
 
 ## EXTRACTION STRATEGY:
 1. Read EVERY piece of text carefully - numbers, names, addresses, percentages
