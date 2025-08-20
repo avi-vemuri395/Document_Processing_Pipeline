@@ -98,7 +98,7 @@ class PipelineOrchestrator:
             form_results = {}
             for bank in target_banks:
                 if bank in FormMappingService.BANK_FORMS:
-                    bank_results = self.part2_mapper.map_bank_forms(
+                    bank_results = await self.part2_mapper.map_bank_forms(
                         application_id,
                         bank
                     )
@@ -107,7 +107,7 @@ class PipelineOrchestrator:
                     print(f"  ⚠️  Unknown bank: {bank}")
         else:
             # Process all banks
-            form_results = self.part2_mapper.map_all_forms(application_id)
+            form_results = await self.part2_mapper.map_all_forms(application_id)
         
         results["part2_results"] = form_results
         
@@ -169,7 +169,7 @@ class PipelineOrchestrator:
         # Check if we should regenerate forms
         if regenerate_forms:
             print("\n🔄 Regenerating forms with updated data...")
-            form_results = self.part2_mapper.map_all_forms(application_id)
+            form_results = await self.part2_mapper.map_all_forms(application_id)
         else:
             print("\n⏸️  Form regeneration skipped (regenerate_forms=False)")
             form_results = {}

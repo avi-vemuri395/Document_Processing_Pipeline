@@ -349,39 +349,40 @@ class BenchmarkExtractor:
                     print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
                     try:
+                        # TODO: Batch processing temporarily disabled - investigating GCS permissions
                         # NEW: Check if file is large enough for batch processing
-                        if file_size >= 2.0 and self.batch_processor:
-                            print(f"     🔄 Large file detected - attempting batch processing")
-                            docai_result = await self.rate_limiter.execute_with_backoff(
-                                self.batch_processor.process_large_document,
-                                file_path,
-                                2.0,  # 2MB threshold
-                                api_type="docai"
-                            )
-                            
-                            # If batch processing fails, fall back to sync processing
-                            if not docai_result.get("success"):
-                                print(f"     ⚠️ Batch processing failed: {docai_result.get('error')}")
-                                print(f"     🔄 Falling back to sync processing...")
-                                # Try sync processing if file is small enough
-                                if file_size <= 1.5:  # Form Parser sync limit
-                                    docai_result = await self.rate_limiter.execute_with_backoff(
-                                        docai_processor.extract,
-                                        file_path,
-                                        api_type="docai"
-                                    )
-                                else:
-                                    # File too large for sync, will fall back to Claude Vision
-                                    print(f"     ⚠️ File too large for sync processing - will use Claude Vision")
-                                    failed_docai_files.append(file_path)
-                                    continue
-                        else:
-                            # Process with DocAI (Form Parser or General Processor) with rate limiting
-                            docai_result = await self.rate_limiter.execute_with_backoff(
-                                docai_processor.extract,
-                                file_path,
-                                api_type="docai"
-                            )
+                        # if file_size >= 2.0 and self.batch_processor:
+                        #     print(f"     🔄 Large file detected - attempting batch processing")
+                        #     docai_result = await self.rate_limiter.execute_with_backoff(
+                        #         self.batch_processor.process_large_document,
+                        #         file_path,
+                        #         2.0,  # 2MB threshold
+                        #         api_type="docai"
+                        #     )
+                        #     
+                        #     # If batch processing fails, fall back to sync processing
+                        #     if not docai_result.get("success"):
+                        #         print(f"     ⚠️ Batch processing failed: {docai_result.get('error')}")
+                        #         print(f"     🔄 Falling back to sync processing...")
+                        #         # Try sync processing if file is small enough
+                        #         if file_size <= 1.5:  # Form Parser sync limit
+                        #             docai_result = await self.rate_limiter.execute_with_backoff(
+                        #                 docai_processor.extract,
+                        #                 file_path,
+                        #                 api_type="docai"
+                        #             )
+                        #         else:
+                        #             # File too large for sync, will fall back to Claude Vision
+                        #             print(f"     ⚠️ File too large for sync processing - will use Claude Vision")
+                        #             failed_docai_files.append(file_path)
+                        #             continue
+                        # else:
+                        # Process with DocAI (Form Parser or General Processor) with rate limiting
+                        docai_result = await self.rate_limiter.execute_with_backoff(
+                            docai_processor.extract,
+                            file_path,
+                            api_type="docai"
+                        )
                         
                         if docai_result.get("success"):
                             docai_results[str(file_path)] = docai_result

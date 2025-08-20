@@ -1,0 +1,1178 @@
+{
+  "huntington_debt_schedule_v1": {
+    "type": "object",
+    "properties": {
+      "Creditor Name": {
+        "type": "string",
+        "description": "Creditor Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Account Number": {
+        "type": "string",
+        "description": "Account Number field (Huntington Bank application)"
+      },
+      "Original Amount": {
+        "type": "string",
+        "description": "Original Amount field - Financial amount in dollars (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Current Balance": {
+        "type": "string",
+        "description": "Current Balance field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Monthly Payment": {
+        "type": "string",
+        "description": "Monthly Payment field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Interest Rate": {
+        "type": "string",
+        "description": "Interest Rate field (Huntington Bank application)"
+      },
+      "Maturity Date": {
+        "type": "string",
+        "description": "Maturity Date field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Collateral": {
+        "type": "string",
+        "description": "Collateral field (Huntington Bank application)"
+      },
+      "Personal Guarantee": {
+        "type": "string",
+        "description": "Personal Guarantee field (Huntington Bank application)"
+      }
+    },
+    "required": [
+      "Creditor Name",
+      "Account Number",
+      "Original Amount",
+      "Current Balance",
+      "Monthly Payment",
+      "Interest Rate",
+      "Maturity Date",
+      "Collateral",
+      "Personal Guarantee"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Huntington Business Debt Schedule - Huntington"
+  },
+  "wells_fargo_loan_app_v1": {
+    "type": "object",
+    "properties": {
+      "Business Legal Name": {
+        "type": "string",
+        "description": "Business Legal Name field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "DBA/Trade Name": {
+        "type": "string",
+        "description": "DBA/Trade Name field - Individual person information, not business names (Wells Fargo application)"
+      },
+      "Federal Tax ID Number": {
+        "type": "string",
+        "description": "Federal Tax ID Number field - Business Employer Identification Number, never personal SSN (Wells Fargo application) Format: 12-3456789",
+        "pattern": "^\\d{2}-\\d{7}$"
+      },
+      "Business Phone Number": {
+        "type": "string",
+        "description": "Business Phone Number field - Business/company information only, never personal names (Wells Fargo application) Format: (555) 123-4567"
+      },
+      "Business Email Address": {
+        "type": "string",
+        "description": "Business Email Address field - Business/company information only, never personal names (Wells Fargo application)",
+        "format": "email"
+      },
+      "Business Street Address": {
+        "type": "string",
+        "description": "Business Street Address field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "City": {
+        "type": "string",
+        "description": "City field (Wells Fargo application)"
+      },
+      "State": {
+        "type": "string",
+        "description": "State field (Wells Fargo application)"
+      },
+      "ZIP Code": {
+        "type": "string",
+        "description": "ZIP Code field (Wells Fargo application)"
+      },
+      "Date Business Established": {
+        "type": "string",
+        "description": "Date Business Established field - Business/company information only, never personal names (Wells Fargo application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Type of Business Entity": {
+        "type": "string",
+        "description": "Type of Business Entity field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Corporation": {
+        "type": "string",
+        "description": "Corporation field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Limited Liability Company": {
+        "type": "string",
+        "description": "Limited Liability Company field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Partnership": {
+        "type": "string",
+        "description": "Partnership field (Wells Fargo application)"
+      },
+      "Sole Proprietorship": {
+        "type": "string",
+        "description": "Sole Proprietorship field (Wells Fargo application)"
+      },
+      "Loan Amount Requested": {
+        "type": "string",
+        "description": "Loan Amount Requested field - Financial amount in dollars (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Purpose of Loan": {
+        "type": "string",
+        "description": "Purpose of Loan field (Wells Fargo application)"
+      },
+      "Annual Business Revenue": {
+        "type": "string",
+        "description": "Annual Business Revenue field - Business/company information only, never personal names (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Net Income": {
+        "type": "string",
+        "description": "Net Income field - Financial amount in dollars (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Number of Employees": {
+        "type": "string",
+        "description": "Number of Employees field (Wells Fargo application)"
+      },
+      "Primary Owner Name": {
+        "type": "string",
+        "description": "Primary Owner Name field - Individual person information, not business names (Wells Fargo application)"
+      },
+      "Owner Social Security Number": {
+        "type": "string",
+        "description": "Owner Social Security Number field - Individual's Social Security Number, never business EIN (Wells Fargo application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Owner Date of Birth": {
+        "type": "string",
+        "description": "Owner Date of Birth field - Date value (Wells Fargo application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Ownership Percentage": {
+        "type": "string",
+        "description": "Ownership Percentage field (Wells Fargo application)"
+      },
+      "Business Checking Account": {
+        "type": "string",
+        "description": "Business Checking Account field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Business Savings Account": {
+        "type": "string",
+        "description": "Business Savings Account field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Existing Wells Fargo Customer": {
+        "type": "string",
+        "description": "Existing Wells Fargo Customer field (Wells Fargo application)"
+      },
+      "Total Business Assets": {
+        "type": "string",
+        "description": "Total Business Assets field - Business/company information only, never personal names (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Business Liabilities": {
+        "type": "string",
+        "description": "Total Business Liabilities field - Business/company information only, never personal names (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Outstanding Debt": {
+        "type": "string",
+        "description": "Total Outstanding Debt field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Number of Outstanding Debts": {
+        "type": "string",
+        "description": "Number of Outstanding Debts field (Wells Fargo application)"
+      },
+      "Collateral Available": {
+        "type": "string",
+        "description": "Collateral Available field (Wells Fargo application)"
+      },
+      "Description of Collateral": {
+        "type": "string",
+        "description": "Description of Collateral field (Wells Fargo application)"
+      },
+      "NAICS Code": {
+        "type": "string",
+        "description": "NAICS Code field (Wells Fargo application)"
+      },
+      "Franchise Business": {
+        "type": "string",
+        "description": "Franchise Business field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Veteran-Owned Business": {
+        "type": "string",
+        "description": "Veteran-Owned Business field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Woman-Owned Business": {
+        "type": "string",
+        "description": "Woman-Owned Business field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Minority-Owned Business": {
+        "type": "string",
+        "description": "Minority-Owned Business field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Previous Bankruptcy": {
+        "type": "string",
+        "description": "Previous Bankruptcy field (Wells Fargo application)"
+      },
+      "Criminal History": {
+        "type": "string",
+        "description": "Criminal History field (Wells Fargo application)"
+      },
+      "Application Date": {
+        "type": "string",
+        "description": "Application Date field - Date value (Wells Fargo application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Authorized Signature": {
+        "type": "string",
+        "description": "Authorized Signature field (Wells Fargo application)"
+      }
+    },
+    "required": [
+      "Business Legal Name",
+      "DBA/Trade Name",
+      "Federal Tax ID Number",
+      "Business Phone Number",
+      "Business Email Address",
+      "Business Street Address",
+      "City",
+      "State",
+      "ZIP Code",
+      "Date Business Established",
+      "Type of Business Entity",
+      "Corporation",
+      "Limited Liability Company",
+      "Partnership",
+      "Sole Proprietorship",
+      "Loan Amount Requested",
+      "Purpose of Loan",
+      "Annual Business Revenue",
+      "Net Income",
+      "Number of Employees",
+      "Primary Owner Name",
+      "Owner Social Security Number",
+      "Owner Date of Birth",
+      "Ownership Percentage",
+      "Business Checking Account",
+      "Business Savings Account",
+      "Existing Wells Fargo Customer",
+      "Total Business Assets",
+      "Total Business Liabilities",
+      "Total Outstanding Debt",
+      "Number of Outstanding Debts",
+      "Collateral Available",
+      "Description of Collateral",
+      "NAICS Code",
+      "Franchise Business",
+      "Veteran-Owned Business",
+      "Woman-Owned Business",
+      "Minority-Owned Business",
+      "Previous Bankruptcy",
+      "Criminal History",
+      "Application Date",
+      "Authorized Signature"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for wells_fargo_loan_app_v1 - Unknown Bank"
+  },
+  "huntington_business_app_v1": {
+    "type": "object",
+    "properties": {
+      "Business Name": {
+        "type": "string",
+        "description": "Business Name field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Trade Name DBA": {
+        "type": "string",
+        "description": "Trade Name DBA field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Tax ID Number": {
+        "type": "string",
+        "description": "Tax ID Number field - Business Employer Identification Number, never personal SSN (Huntington Bank application) Format: 12-3456789",
+        "pattern": "^\\d{2}-\\d{7}$"
+      },
+      "Business Type": {
+        "type": "string",
+        "description": "Business Type field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Date Established": {
+        "type": "string",
+        "description": "Date Established field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "State of Organization": {
+        "type": "string",
+        "description": "State of Organization field (Huntington Bank application)"
+      },
+      "Business Address": {
+        "type": "string",
+        "description": "Business Address field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Business City": {
+        "type": "string",
+        "description": "Business City field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Business State": {
+        "type": "string",
+        "description": "Business State field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Business Zip": {
+        "type": "string",
+        "description": "Business Zip field - Business/company information only, never personal names (Huntington Bank application)"
+      },
+      "Business Phone": {
+        "type": "string",
+        "description": "Business Phone field - Business/company information only, never personal names (Huntington Bank application) Format: (555) 123-4567"
+      },
+      "Business Email": {
+        "type": "string",
+        "description": "Business Email field - Business/company information only, never personal names (Huntington Bank application)",
+        "format": "email"
+      },
+      "Annual Sales": {
+        "type": "string",
+        "description": "Annual Sales field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Number of Employees": {
+        "type": "string",
+        "description": "Number of Employees field (Huntington Bank application)"
+      },
+      "Purpose of Loan": {
+        "type": "string",
+        "description": "Purpose of Loan field (Huntington Bank application)"
+      },
+      "Loan Amount": {
+        "type": "string",
+        "description": "Loan Amount field - Financial amount in dollars (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Owner Name": {
+        "type": "string",
+        "description": "Owner Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Owner SSN": {
+        "type": "string",
+        "description": "Owner SSN field - Individual's Social Security Number, never business EIN (Huntington Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Owner DOB": {
+        "type": "string",
+        "description": "Owner DOB field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Ownership Percent": {
+        "type": "string",
+        "description": "Ownership Percent field (Huntington Bank application)"
+      }
+    },
+    "required": [
+      "Business Name",
+      "Trade Name DBA",
+      "Tax ID Number",
+      "Business Type",
+      "Date Established",
+      "State of Organization",
+      "Business Address",
+      "Business City",
+      "Business State",
+      "Business Zip",
+      "Business Phone",
+      "Business Email",
+      "Annual Sales",
+      "Number of Employees",
+      "Purpose of Loan",
+      "Loan Amount",
+      "Owner Name",
+      "Owner SSN",
+      "Owner DOB",
+      "Ownership Percent"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Huntington Business Application - Huntington"
+  },
+  "huntington_pfs_v1": {
+    "type": "object",
+    "properties": {
+      "Applicant Full Legal Name": {
+        "type": "string",
+        "description": "Applicant Full Legal Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Spouse Full Legal Name": {
+        "type": "string",
+        "description": "Spouse Full Legal Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Street Address": {
+        "type": "string",
+        "description": "Street Address field - Physical mailing address, never email addresses (Huntington Bank application)"
+      },
+      "City State Zip": {
+        "type": "string",
+        "description": "City State Zip field (Huntington Bank application)"
+      },
+      "County": {
+        "type": "string",
+        "description": "County field (Huntington Bank application)"
+      },
+      "Employer Occupation": {
+        "type": "string",
+        "description": "Employer Occupation field (Huntington Bank application)"
+      },
+      "Home Phone": {
+        "type": "string",
+        "description": "Home Phone field (Huntington Bank application) Format: (555) 123-4567"
+      },
+      "Business Phone": {
+        "type": "string",
+        "description": "Business Phone field - Business/company information only, never personal names (Huntington Bank application) Format: (555) 123-4567"
+      },
+      "Date of Birth": {
+        "type": "string",
+        "description": "Date of Birth field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Social Security Number": {
+        "type": "string",
+        "description": "Social Security Number field - Individual's Social Security Number, never business EIN (Huntington Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Drivers License Number": {
+        "type": "string",
+        "description": "Drivers License Number field (Huntington Bank application)"
+      },
+      "State": {
+        "type": "string",
+        "description": "State field (Huntington Bank application)"
+      },
+      "Issue Date": {
+        "type": "string",
+        "description": "Issue Date field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Exp Date": {
+        "type": "string",
+        "description": "Exp Date field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Cash on hand and on Deposit": {
+        "type": "string",
+        "description": "Cash on hand and on Deposit field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "US Government Obligations": {
+        "type": "string",
+        "description": "US Government Obligations field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Other Investments": {
+        "type": "string",
+        "description": "Other Investments field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "IRA Keogh Plans Annuity 401K": {
+        "type": "string",
+        "description": "IRA Keogh Plans Annuity 401K field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Life Insurance Cash Value": {
+        "type": "string",
+        "description": "Life Insurance Cash Value field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Accounts Receivable": {
+        "type": "string",
+        "description": "Accounts Receivable field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Real Estate Appraised Value": {
+        "type": "string",
+        "description": "Real Estate Appraised Value field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Assets": {
+        "type": "string",
+        "description": "Total Assets field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Mortgage Notes Payable": {
+        "type": "string",
+        "description": "Mortgage Notes Payable field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Unsecured Notes": {
+        "type": "string",
+        "description": "Unsecured Notes field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Contract Accounts Unpaid": {
+        "type": "string",
+        "description": "Contract Accounts Unpaid field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Open Accounts Unpaid": {
+        "type": "string",
+        "description": "Open Accounts Unpaid field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Taxes Due": {
+        "type": "string",
+        "description": "Taxes Due field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Liabilities": {
+        "type": "string",
+        "description": "Total Liabilities field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Net Worth": {
+        "type": "string",
+        "description": "Net Worth field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Annual Income": {
+        "type": "string",
+        "description": "Annual Income field - Financial amount in dollars (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Printed Name": {
+        "type": "string",
+        "description": "Printed Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "US Citizen": {
+        "type": "string",
+        "description": "US Citizen field (Huntington Bank application)"
+      },
+      "Resident Alien": {
+        "type": "string",
+        "description": "Resident Alien field (Huntington Bank application)"
+      },
+      "Email Address": {
+        "type": "string",
+        "description": "Email Address field - Valid email address only, never physical addresses (Huntington Bank application)",
+        "format": "email"
+      },
+      "Spouse Social Security Number": {
+        "type": "string",
+        "description": "Spouse Social Security Number field - Individual's Social Security Number, never business EIN (Huntington Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Spouse Date of Birth": {
+        "type": "string",
+        "description": "Spouse Date of Birth field - Date value (Huntington Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Spouse Employer Occupation": {
+        "type": "string",
+        "description": "Spouse Employer Occupation field (Huntington Bank application)"
+      },
+      "Spouse Cash on hand": {
+        "type": "string",
+        "description": "Spouse Cash on hand field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Joint Cash on hand": {
+        "type": "string",
+        "description": "Joint Cash on hand field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Farm Implements or Machinery": {
+        "type": "string",
+        "description": "Farm Implements or Machinery field (Huntington Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      }
+    },
+    "required": [
+      "Applicant Full Legal Name",
+      "Spouse Full Legal Name",
+      "Street Address",
+      "City State Zip",
+      "County",
+      "Employer Occupation",
+      "Home Phone",
+      "Business Phone",
+      "Date of Birth",
+      "Social Security Number",
+      "Drivers License Number",
+      "State",
+      "Issue Date",
+      "Exp Date",
+      "Cash on hand and on Deposit",
+      "US Government Obligations",
+      "Other Investments",
+      "IRA Keogh Plans Annuity 401K",
+      "Life Insurance Cash Value",
+      "Accounts Receivable",
+      "Real Estate Appraised Value",
+      "Total Assets",
+      "Mortgage Notes Payable",
+      "Unsecured Notes",
+      "Contract Accounts Unpaid",
+      "Open Accounts Unpaid",
+      "Taxes Due",
+      "Total Liabilities",
+      "Net Worth",
+      "Annual Income",
+      "Printed Name",
+      "US Citizen",
+      "Resident Alien",
+      "Email Address",
+      "Spouse Social Security Number",
+      "Spouse Date of Birth",
+      "Spouse Employer Occupation",
+      "Spouse Cash on hand",
+      "Joint Cash on hand",
+      "Farm Implements or Machinery"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for huntington_pfs_v1 - Unknown Bank"
+  },
+  "live_oak_application_v1": {
+    "type": "object",
+    "properties": {
+      "Business Legal Name": {
+        "type": "string",
+        "description": "Business Legal Name field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "DBA Name": {
+        "type": "string",
+        "description": "DBA Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Federal Tax ID": {
+        "type": "string",
+        "description": "Federal Tax ID field - Business Employer Identification Number, never personal SSN (Live Oak Bank application) Format: 12-3456789",
+        "pattern": "^\\d{2}-\\d{7}$"
+      },
+      "Business Phone": {
+        "type": "string",
+        "description": "Business Phone field - Business/company information only, never personal names (Live Oak Bank application) Format: (555) 123-4567"
+      },
+      "Business Address": {
+        "type": "string",
+        "description": "Business Address field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "City": {
+        "type": "string",
+        "description": "City field (Live Oak Bank application)"
+      },
+      "State": {
+        "type": "string",
+        "description": "State field (Live Oak Bank application)"
+      },
+      "Zip": {
+        "type": "string",
+        "description": "Zip field (Live Oak Bank application)"
+      },
+      "Date Business Established": {
+        "type": "string",
+        "description": "Date Business Established field - Business/company information only, never personal names (Live Oak Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Number of Employees": {
+        "type": "string",
+        "description": "Number of Employees field (Live Oak Bank application)"
+      },
+      "NAICS Code": {
+        "type": "string",
+        "description": "NAICS Code field (Live Oak Bank application)"
+      },
+      "Annual Revenue": {
+        "type": "string",
+        "description": "Annual Revenue field - Financial amount in dollars (Live Oak Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Loan Amount Requested": {
+        "type": "string",
+        "description": "Loan Amount Requested field - Financial amount in dollars (Live Oak Bank application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Loan Purpose": {
+        "type": "string",
+        "description": "Loan Purpose field (Live Oak Bank application)"
+      },
+      "Name": {
+        "type": "string",
+        "description": "Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Title": {
+        "type": "string",
+        "description": "Title field (Live Oak Bank application)"
+      },
+      "Ownership Percentage": {
+        "type": "string",
+        "description": "Ownership Percentage field (Live Oak Bank application)"
+      },
+      "Social Security Number": {
+        "type": "string",
+        "description": "Social Security Number field - Individual's Social Security Number, never business EIN (Live Oak Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Date of Birth": {
+        "type": "string",
+        "description": "Date of Birth field - Date value (Live Oak Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Email Address": {
+        "type": "string",
+        "description": "Email Address field - Valid email address only, never physical addresses (Live Oak Bank application)",
+        "format": "email"
+      }
+    },
+    "required": [
+      "Business Legal Name",
+      "DBA Name",
+      "Federal Tax ID",
+      "Business Phone",
+      "Business Address",
+      "City",
+      "State",
+      "Zip",
+      "Date Business Established",
+      "Number of Employees",
+      "NAICS Code",
+      "Annual Revenue",
+      "Loan Amount Requested",
+      "Loan Purpose",
+      "Name",
+      "Title",
+      "Ownership Percentage",
+      "Social Security Number",
+      "Date of Birth",
+      "Email Address"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Live Oak SBA Application - Live Oak"
+  },
+  "wells_fargo_financial_v1": {
+    "type": "object",
+    "properties": {
+      "Statement Date": {
+        "type": "string",
+        "description": "Statement Date field - Date value (Wells Fargo application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Company Name": {
+        "type": "string",
+        "description": "Company Name field - Business/company information only, never personal names (Wells Fargo application)"
+      },
+      "Prepared By": {
+        "type": "string",
+        "description": "Prepared By field (Wells Fargo application)"
+      },
+      "Cash and Equivalents": {
+        "type": "string",
+        "description": "Cash and Equivalents field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Accounts Receivable": {
+        "type": "string",
+        "description": "Accounts Receivable field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Inventory": {
+        "type": "string",
+        "description": "Inventory field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Other Current Assets": {
+        "type": "string",
+        "description": "Other Current Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Current Assets": {
+        "type": "string",
+        "description": "Total Current Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Fixed Assets": {
+        "type": "string",
+        "description": "Fixed Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Accumulated Depreciation": {
+        "type": "string",
+        "description": "Accumulated Depreciation field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Net Fixed Assets": {
+        "type": "string",
+        "description": "Net Fixed Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Other Assets": {
+        "type": "string",
+        "description": "Other Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Assets": {
+        "type": "string",
+        "description": "Total Assets field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Accounts Payable": {
+        "type": "string",
+        "description": "Accounts Payable field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Short Term Debt": {
+        "type": "string",
+        "description": "Short Term Debt field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Other Current Liabilities": {
+        "type": "string",
+        "description": "Other Current Liabilities field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Current Liabilities": {
+        "type": "string",
+        "description": "Total Current Liabilities field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Long Term Debt": {
+        "type": "string",
+        "description": "Long Term Debt field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Other Liabilities": {
+        "type": "string",
+        "description": "Other Liabilities field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Liabilities": {
+        "type": "string",
+        "description": "Total Liabilities field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Common Stock": {
+        "type": "string",
+        "description": "Common Stock field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Retained Earnings": {
+        "type": "string",
+        "description": "Retained Earnings field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Equity": {
+        "type": "string",
+        "description": "Total Equity field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      },
+      "Total Liabilities and Equity": {
+        "type": "string",
+        "description": "Total Liabilities and Equity field (Wells Fargo application) Format: Dollar amount (e.g., $150,000.00)",
+        "pattern": "^\\$?[\\d,]+\\.?\\d{0,2}$"
+      }
+    },
+    "required": [
+      "Statement Date",
+      "Company Name",
+      "Prepared By",
+      "Cash and Equivalents",
+      "Accounts Receivable",
+      "Inventory",
+      "Other Current Assets",
+      "Total Current Assets",
+      "Fixed Assets",
+      "Accumulated Depreciation",
+      "Net Fixed Assets",
+      "Other Assets",
+      "Total Assets",
+      "Accounts Payable",
+      "Short Term Debt",
+      "Other Current Liabilities",
+      "Total Current Liabilities",
+      "Long Term Debt",
+      "Other Liabilities",
+      "Total Liabilities",
+      "Common Stock",
+      "Retained Earnings",
+      "Total Equity",
+      "Total Liabilities and Equity"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Wells Fargo Financial Statement - Wells Fargo"
+  },
+  "live_oak_pfs_v1": {
+    "type": "object",
+    "properties": {
+      "Name": {
+        "type": "string",
+        "description": "Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Social Security Number": {
+        "type": "string",
+        "description": "Social Security Number field - Individual's Social Security Number, never business EIN (Live Oak Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Date of Birth": {
+        "type": "string",
+        "description": "Date of Birth field - Date value (Live Oak Bank application) Format: MM/DD/YYYY",
+        "pattern": "^\\d{2}/\\d{2}/\\d{4}$"
+      },
+      "Mobile Telephone Number": {
+        "type": "string",
+        "description": "Mobile Telephone Number field (Live Oak Bank application) Format: (555) 123-4567"
+      },
+      "Email address": {
+        "type": "string",
+        "description": "Email address field - Valid email address only, never physical addresses (Live Oak Bank application)",
+        "format": "email"
+      },
+      "Residence Address": {
+        "type": "string",
+        "description": "Residence Address field - Physical mailing address, never email addresses (Live Oak Bank application)"
+      },
+      "City State Zip": {
+        "type": "string",
+        "description": "City State Zip field (Live Oak Bank application)"
+      },
+      "Marital Status": {
+        "type": "string",
+        "description": "Marital Status field (Live Oak Bank application)"
+      },
+      "Business Applicant Name": {
+        "type": "string",
+        "description": "Business Applicant Name field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Business Applicant Legal Name": {
+        "type": "string",
+        "description": "Business Applicant Legal Name field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "What percentage of the applicant business do/will you own?": {
+        "type": "string",
+        "description": "What percentage of the applicant business do/will you own? field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Business Tax ID Number": {
+        "type": "string",
+        "description": "Business Tax ID Number field - Business/company information only, never personal names (Live Oak Bank application) Format: 12-3456789",
+        "pattern": "^\\d{2}-\\d{7}$"
+      },
+      "Business Structure": {
+        "type": "string",
+        "description": "Business Structure field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Spouse Name": {
+        "type": "string",
+        "description": "Spouse Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Social Security Number_2": {
+        "type": "string",
+        "description": "Social Security Number_2 field - Individual's Social Security Number, never business EIN (Live Oak Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Applicant Business Phone Number": {
+        "type": "string",
+        "description": "Applicant Business Phone Number field - Business/company information only, never personal names (Live Oak Bank application) Format: (555) 123-4567"
+      },
+      "Principal Place of Business Address": {
+        "type": "string",
+        "description": "Principal Place of Business Address field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "City State Zip_2": {
+        "type": "string",
+        "description": "City State Zip_2 field (Live Oak Bank application)"
+      },
+      "Primary Contact of Business": {
+        "type": "string",
+        "description": "Primary Contact of Business field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Printed Name": {
+        "type": "string",
+        "description": "Printed Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Printed Name_2": {
+        "type": "string",
+        "description": "Printed Name_2 field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Printed Name_3": {
+        "type": "string",
+        "description": "Printed Name_3 field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Entity Name": {
+        "type": "string",
+        "description": "Entity Name field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Signer on behalf of the entity": {
+        "type": "string",
+        "description": "Signer on behalf of the entity field - Business/company information only, never personal names (Live Oak Bank application)"
+      },
+      "Small Business Legal Name": {
+        "type": "string",
+        "description": "Small Business Legal Name field - Business/company information only, never personal names (Live Oak Bank application)"
+      }
+    },
+    "required": [
+      "Name",
+      "Social Security Number",
+      "Date of Birth",
+      "Mobile Telephone Number",
+      "Email address",
+      "Residence Address",
+      "City State Zip",
+      "Marital Status",
+      "Business Applicant Name",
+      "Business Applicant Legal Name",
+      "What percentage of the applicant business do/will you own?",
+      "Business Tax ID Number",
+      "Business Structure",
+      "Spouse Name",
+      "Social Security Number_2",
+      "Applicant Business Phone Number",
+      "Principal Place of Business Address",
+      "City State Zip_2",
+      "Primary Contact of Business",
+      "Printed Name",
+      "Printed Name_2",
+      "Printed Name_3",
+      "Entity Name",
+      "Signer on behalf of the entity",
+      "Small Business Legal Name"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for live_oak_pfs_v1 - Unknown Bank"
+  },
+  "huntington_tax_transcript_v1": {
+    "type": "object",
+    "properties": {
+      "Taxpayer Name": {
+        "type": "string",
+        "description": "Taxpayer Name field - Individual person information, not business names (Huntington Bank application)"
+      },
+      "Taxpayer Identification Number": {
+        "type": "string",
+        "description": "Taxpayer Identification Number field (Huntington Bank application)"
+      },
+      "Tax Form": {
+        "type": "string",
+        "description": "Tax Form field (Huntington Bank application)"
+      },
+      "Tax Period Year 1": {
+        "type": "string",
+        "description": "Tax Period Year 1 field (Huntington Bank application)"
+      },
+      "Tax Period Year 2": {
+        "type": "string",
+        "description": "Tax Period Year 2 field (Huntington Bank application)"
+      },
+      "Tax Period Year 3": {
+        "type": "string",
+        "description": "Tax Period Year 3 field (Huntington Bank application)"
+      },
+      "Transcript Type": {
+        "type": "string",
+        "description": "Transcript Type field (Huntington Bank application)"
+      },
+      "Customer File Number": {
+        "type": "string",
+        "description": "Customer File Number field (Huntington Bank application)"
+      },
+      "Mailing Address": {
+        "type": "string",
+        "description": "Mailing Address field - Physical mailing address, never email addresses (Huntington Bank application)"
+      },
+      "City State ZIP": {
+        "type": "string",
+        "description": "City State ZIP field (Huntington Bank application)"
+      }
+    },
+    "required": [
+      "Taxpayer Name",
+      "Taxpayer Identification Number",
+      "Tax Form",
+      "Tax Period Year 1",
+      "Tax Period Year 2",
+      "Tax Period Year 3",
+      "Transcript Type",
+      "Customer File Number",
+      "Mailing Address",
+      "City State ZIP"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Huntington Tax Transcript Request - Huntington"
+  },
+  "live_oak_4506t_v1": {
+    "type": "object",
+    "properties": {
+      "Taxpayer Name": {
+        "type": "string",
+        "description": "Taxpayer Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Taxpayer SSN/EIN": {
+        "type": "string",
+        "description": "Taxpayer SSN/EIN field - Individual's Social Security Number, never business EIN (Live Oak Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Spouse Name": {
+        "type": "string",
+        "description": "Spouse Name field - Individual person information, not business names (Live Oak Bank application)"
+      },
+      "Spouse SSN": {
+        "type": "string",
+        "description": "Spouse SSN field - Individual's Social Security Number, never business EIN (Live Oak Bank application) Format: XXX-XX-1234 (masked) or 123-45-6789",
+        "pattern": "^\\d{3}-\\d{2}-\\d{4}$|^XXX-XX-\\d{4}$"
+      },
+      "Current Address": {
+        "type": "string",
+        "description": "Current Address field - Physical mailing address, never email addresses (Live Oak Bank application)"
+      },
+      "City State Zip": {
+        "type": "string",
+        "description": "City State Zip field (Live Oak Bank application)"
+      },
+      "Previous Address": {
+        "type": "string",
+        "description": "Previous Address field - Physical mailing address, never email addresses (Live Oak Bank application)"
+      },
+      "Tax Form Number": {
+        "type": "string",
+        "description": "Tax Form Number field (Live Oak Bank application)"
+      },
+      "Tax Year 1": {
+        "type": "string",
+        "description": "Tax Year 1 field (Live Oak Bank application)"
+      },
+      "Tax Year 2": {
+        "type": "string",
+        "description": "Tax Year 2 field (Live Oak Bank application)"
+      },
+      "Tax Year 3": {
+        "type": "string",
+        "description": "Tax Year 3 field (Live Oak Bank application)"
+      },
+      "Tax Year 4": {
+        "type": "string",
+        "description": "Tax Year 4 field (Live Oak Bank application)"
+      }
+    },
+    "required": [
+      "Taxpayer Name",
+      "Taxpayer SSN/EIN",
+      "Spouse Name",
+      "Spouse SSN",
+      "Current Address",
+      "City State Zip",
+      "Previous Address",
+      "Tax Form Number",
+      "Tax Year 1",
+      "Tax Year 2",
+      "Tax Year 3",
+      "Tax Year 4"
+    ],
+    "additionalProperties": false,
+    "description": "Form schema for Live Oak Form 4506-T - Live Oak"
+  }
+}
