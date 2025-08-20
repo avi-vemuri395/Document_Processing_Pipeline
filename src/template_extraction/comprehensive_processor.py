@@ -127,37 +127,45 @@ class ComprehensiveProcessor:
             print(f"  ❌ Extraction failed: {e}")
             return {}
         
-        # 2. Structure the extracted data with classification metadata
+        # 2. Extract file-specific result from raw extraction
+        file_key = str(document_path)
+        file_extraction = raw_extraction.get(file_key, raw_extraction)
+        
+        print(f"  🔧 Processing extraction result: {type(file_extraction)}")
+        if isinstance(file_extraction, dict) and 'success' in file_extraction:
+            print(f"    • DocAI format detected with {len(file_extraction.get('form_fields', {}))} form fields")
+        
+        # 3. Structure the extracted data with classification metadata
         structured_data = self._structure_extracted_data(
-            raw_extraction, 
+            file_extraction, 
             document_path.name,
             classification_result
         )
         
-        # 3. Save individual extraction
+        # 4. Save individual extraction
         extraction_path = app_dir / "extractions" / f"{document_path.stem}_extraction.json"
         extraction_path.parent.mkdir(exist_ok=True)
         with open(extraction_path, 'w') as f:
             json.dump(structured_data, f, indent=2, default=str)
         print(f"  ✅ Saved extraction to {extraction_path.name}")
         
-        # 4. Load existing master data
+        # 5. Load existing master data
         master_path = app_dir / "master_data.json"
         existing_master = self._load_master_data(master_path)
         
-        # 5. Merge with existing data
+        # 6. Merge with existing data
         updated_master = self._merge_with_master(
             existing_master, 
             structured_data,
             application_id
         )
         
-        # 6. Save updated master data
+        # 7. Save updated master data
         with open(master_path, 'w') as f:
             json.dump(updated_master, f, indent=2, default=str)
         print(f"  ✅ Updated master data with {len(structured_data)} categories")
         
-        # 7. Update processing state
+        # 8. Update processing state
         self._update_state(app_dir, document_path.name, updated_master)
         
         return updated_master
@@ -270,41 +278,75 @@ class ComprehensiveProcessor:
             }
         }
         
-        # Check if this is Excel extraction format (has file paths as keys)
+        # Check format type and route accordingly
+        is_docai_format = self._is_docai_format(raw_data)
         is_excel_format = False
-        for key in raw_data.keys():
-            if key not in ['_metadata', 'error'] and '/' in str(key):
-                is_excel_format = True
-                break
         
-        if is_excel_format:
+        if not is_docai_format:
+            # Check if this is Excel extraction format
+            # Excel format has specific keys at top level
+            excel_indicators = {'document_type', 'confidence', 'extraction_method', 'field_count', 'data'}
+            if excel_indicators.issubset(set(raw_data.keys())):
+                is_excel_format = True
+            else:
+                # Old format check (has file paths as keys)
+                for key in raw_data.keys():
+                    if key not in ['_metadata', 'error'] and '/' in str(key):
+                        is_excel_format = True
+                        break
+        
+        if is_docai_format:
+            # Handle Google Document AI format
+            print(f"    🔧 Processing DocAI format with {len(raw_data.get('form_fields', {}))} form fields")
+            self._process_docai_format(raw_data, structured, source_document)
+        elif is_excel_format:
             # Handle Excel extraction format
-            for file_path, excel_data in raw_data.items():
-                if file_path == '_metadata':
-                    structured["metadata"]["extraction_metadata"] = excel_data
-                    continue
+            # Check if this is the new direct format (document_type at top level)
+            if 'extraction_method' in raw_data and 'data' in raw_data:
+                # New format: direct top-level keys
+                structured["metadata"]["extraction_method"] = raw_data['extraction_method']
+                structured["metadata"]["extraction_confidence"] = raw_data.get('confidence', 0.0)
+                structured["metadata"]["document_type"] = raw_data.get('document_type', 'unknown')
+                structured["metadata"]["field_count"] = raw_data.get('field_count', 0)
+                
+                # Map the nested data
+                if 'data' in raw_data and isinstance(raw_data['data'], dict):
+                    data = raw_data['data']
                     
-                if isinstance(excel_data, dict):
-                    # Set extraction method from Excel data
-                    if 'extraction_method' in excel_data:
-                        structured["metadata"]["extraction_method"] = excel_data['extraction_method']
+                    if 'financial_data' in data:
+                        structured["financial_data"].update(data['financial_data'])
                     
-                    # Store document type and confidence (may override classification)
-                    if 'document_type' in excel_data:
-                        structured["metadata"]["document_type"] = excel_data['document_type']
-                    if 'confidence' in excel_data:
-                        structured["metadata"]["extraction_confidence"] = excel_data['confidence']
-                    
-                    # Map financial data from Excel
-                    if 'data' in excel_data and isinstance(excel_data['data'], dict):
-                        data = excel_data['data']
+                    # Store any metadata from Excel
+                    if 'metadata' in data:
+                        structured["other_data"]["excel_metadata"] = data['metadata']
+            else:
+                # Old format: file paths as keys
+                for file_path, excel_data in raw_data.items():
+                    if file_path == '_metadata':
+                        structured["metadata"]["extraction_metadata"] = excel_data
+                        continue
                         
-                        if 'financial_data' in data:
-                            structured["financial_data"].update(data['financial_data'])
+                    if isinstance(excel_data, dict):
+                        # Set extraction method from Excel data
+                        if 'extraction_method' in excel_data:
+                            structured["metadata"]["extraction_method"] = excel_data['extraction_method']
                         
-                        # Store any metadata from Excel
-                        if 'metadata' in data:
-                            structured["other_data"]["excel_metadata"] = data['metadata']
+                        # Store document type and confidence (may override classification)
+                        if 'document_type' in excel_data:
+                            structured["metadata"]["document_type"] = excel_data['document_type']
+                        if 'confidence' in excel_data:
+                            structured["metadata"]["extraction_confidence"] = excel_data['confidence']
+                        
+                        # Map financial data from Excel
+                        if 'data' in excel_data and isinstance(excel_data['data'], dict):
+                            data = excel_data['data']
+                            
+                            if 'financial_data' in data:
+                                structured["financial_data"].update(data['financial_data'])
+                            
+                            # Store any metadata from Excel
+                            if 'metadata' in data:
+                                structured["other_data"]["excel_metadata"] = data['metadata']
         else:
             # Handle standard PDF/image extraction format
             structured["metadata"]["extraction_method"] = "comprehensive_llm"
@@ -368,6 +410,251 @@ class ComprehensiveProcessor:
             self._add_confidence_scores(structured, classification_result)
         
         return structured
+    
+    def _is_docai_format(self, raw_data: Dict[str, Any]) -> bool:
+        """
+        Detect if raw_data is in Google Document AI format.
+        
+        DocAI format has these characteristic keys:
+        - success: True/False
+        - form_fields: Dict
+        - tables: List
+        - entities: List
+        - text: String
+        """
+        if not isinstance(raw_data, dict):
+            return False
+        
+        # DocAI format indicators
+        docai_keys = {'success', 'form_fields', 'tables', 'entities', 'text'}
+        present_keys = set(raw_data.keys())
+        
+        # Must have success=True and at least 3 other DocAI keys
+        has_success = raw_data.get('success') is True
+        has_docai_keys = len(docai_keys.intersection(present_keys)) >= 3
+        
+        return has_success and has_docai_keys
+    
+    def _process_docai_format(
+        self, 
+        raw_data: Dict[str, Any], 
+        structured: Dict[str, Any],
+        source_document: str
+    ):
+        """
+        Process Google Document AI format into pipeline categories.
+        
+        Args:
+            raw_data: DocAI extraction result
+            structured: Pipeline categories to populate
+            source_document: Source document name
+        """
+        print(f"    📊 Processing DocAI data: {len(raw_data.get('form_fields', {}))} fields, {len(raw_data.get('tables', []))} tables")
+        
+        # Set extraction method
+        structured["metadata"]["extraction_method"] = "google_document_ai"
+        structured["metadata"]["extraction_confidence"] = raw_data.get('confidence', 0.0)
+        
+        # Store DocAI metadata
+        if 'metadata' in raw_data:
+            structured["metadata"]["docai_metadata"] = raw_data['metadata']
+        
+        # Process form fields into personal, business, tax, and debt info
+        form_fields = raw_data.get('form_fields', {})
+        if form_fields:
+            personal_fields, business_fields, tax_fields, debt_fields = self._categorize_form_fields(form_fields)
+            
+            if personal_fields:
+                structured["personal_info"]["docai_personal"] = personal_fields
+                print(f"      📋 Mapped {len(personal_fields)} personal fields")
+            
+            if business_fields:
+                structured["business_info"]["docai_business"] = business_fields
+                print(f"      🏢 Mapped {len(business_fields)} business fields")
+            
+            if tax_fields:
+                structured["tax_data"]["docai_tax"] = tax_fields
+                print(f"      📊 Mapped {len(tax_fields)} tax fields")
+            
+            if debt_fields:
+                structured["debt_schedules"]["docai_debt"] = debt_fields
+                print(f"      💳 Mapped {len(debt_fields)} debt/liability fields")
+        
+        # Process tables into financial data
+        tables = raw_data.get('tables', [])
+        if tables:
+            financial_data = self._extract_financial_from_tables(tables)
+            if financial_data:
+                structured["financial_data"]["docai_tables"] = financial_data
+                print(f"      💰 Extracted financial data from {len(tables)} tables")
+        
+        # Process entities
+        entities = raw_data.get('entities', [])
+        if entities:
+            entity_data = self._process_entities(entities)
+            if entity_data:
+                structured["other_data"]["docai_entities"] = entity_data
+                print(f"      🔤 Processed {len(entities)} entities")
+        
+        # Store raw text for reference
+        if raw_data.get('text'):
+            structured["other_data"]["docai_text"] = raw_data['text'][:1000]  # Store first 1000 chars
+        
+        # Store DocAI processing metadata
+        structured["other_data"]["docai_processing_info"] = {
+            "form_fields_count": len(form_fields),
+            "tables_count": len(tables),
+            "entities_count": len(entities),
+            "confidence": raw_data.get('confidence', 0.0),
+            "pages_processed": raw_data.get('pages', 0)
+        }
+    
+    def _categorize_form_fields(self, form_fields: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        """
+        Categorize DocAI form fields into personal, business, tax, and debt categories.
+        
+        Args:
+            form_fields: Dictionary of field_name -> value
+            
+        Returns:
+            Tuple of (personal_fields, business_fields, tax_fields, debt_fields)
+        """
+        personal_fields = {}
+        business_fields = {}
+        tax_fields = {}
+        debt_fields = {}
+        
+        # Define field categorization patterns
+        personal_patterns = {
+            'name', 'first', 'last', 'ssn', 'social', 'dob', 'birth', 'date_of_birth',
+            'phone', 'email', 'address', 'city', 'state', 'zip', 'postal',
+            'marital', 'spouse', 'citizen', 'personal', 'residence'
+        }
+        
+        business_patterns = {
+            'business', 'company', 'corporation', 'llc', 'inc', 'entity', 'ein',
+            'tax_id', 'employer', 'revenue', 'income', 'sales', 'employees',
+            'established', 'naics', 'industry', 'ownership', 'entity', 'organization'
+        }
+        
+        # Enhanced tax patterns
+        tax_patterns = {
+            'tax', 'return', 'schedule', 'form', '1040', '1065', '1120', 'k-1',
+            'agi', 'adjusted_gross', 'taxable', 'withholding', 'refund',
+            'deduction', 'exemption', 'filing', 'year', 'unpaid_tax', 'taxes'
+        }
+        
+        # Enhanced debt patterns  
+        debt_patterns = {
+            'debt', 'loan', 'mortgage', 'liability', 'payable', 'credit',
+            'balance', 'payment', 'installment', 'principal', 'interest',
+            'line_of_credit', 'note', 'borrowing', 'accounts_payable',
+            'notes_payable', 'mo_payments', 'monthly_payment'
+        }
+        
+        for field_name, value in form_fields.items():
+            if not value or value == "":
+                continue
+                
+            field_lower = field_name.lower()
+            
+            # Check patterns in priority order
+            if any(pattern in field_lower for pattern in tax_patterns):
+                tax_fields[field_name] = value
+            elif any(pattern in field_lower for pattern in debt_patterns):
+                debt_fields[field_name] = value
+            elif any(pattern in field_lower for pattern in personal_patterns):
+                personal_fields[field_name] = value
+            elif any(pattern in field_lower for pattern in business_patterns):
+                business_fields[field_name] = value
+            else:
+                # Default to business for unknown fields
+                business_fields[field_name] = value
+        
+        return personal_fields, business_fields, tax_fields, debt_fields
+    
+    def _extract_financial_from_tables(self, tables: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Extract financial data from DocAI tables.
+        
+        Args:
+            tables: List of table dictionaries from DocAI
+            
+        Returns:
+            Dictionary of financial data organized by table
+        """
+        financial_data = {}
+        
+        for i, table in enumerate(tables):
+            table_id = f"table_{i+1}"
+            
+            # Extract table structure
+            headers = table.get('headers', [])
+            rows = table.get('rows', [])
+            
+            if not headers or not rows:
+                continue
+            
+            # Convert to structured format
+            table_data = {
+                'headers': headers,
+                'rows': rows,
+                'row_count': len(rows),
+                'column_count': len(headers) if headers else 0
+            }
+            
+            # Look for financial indicators in headers
+            financial_indicators = {
+                'amount', 'balance', 'total', 'assets', 'liabilities', 'income',
+                'revenue', 'expenses', 'cash', 'value', 'cost', 'price', '$'
+            }
+            
+            # Flatten headers if they're nested lists and convert to strings
+            flat_headers = []
+            for header in headers:
+                if isinstance(header, list):
+                    flat_headers.extend([str(h) for h in header if h])
+                else:
+                    flat_headers.append(str(header) if header else '')
+            
+            header_text = ' '.join(flat_headers).lower()
+            if any(indicator in header_text for indicator in financial_indicators):
+                table_data['is_financial'] = True
+                print(f"        💰 Identified financial table: {flat_headers[:3]}...")
+            
+            financial_data[table_id] = table_data
+        
+        return financial_data
+    
+    def _process_entities(self, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Process DocAI entities into structured format.
+        
+        Args:
+            entities: List of entity dictionaries from DocAI
+            
+        Returns:
+            Dictionary of processed entities by type
+        """
+        entity_data = {}
+        
+        for entity in entities:
+            entity_type = entity.get('type', 'UNKNOWN')
+            mention_text = entity.get('mention_text', '')
+            confidence = entity.get('confidence', 0.0)
+            
+            if not mention_text:
+                continue
+            
+            if entity_type not in entity_data:
+                entity_data[entity_type] = []
+            
+            entity_data[entity_type].append({
+                'text': mention_text,
+                'confidence': confidence
+            })
+        
+        return entity_data
     
     def _add_confidence_scores(self, structured_data: Dict[str, Any], classification_result: Any):
         """Add confidence scores to structured data (Phase 1) - RESTORED with embedded implementation."""
@@ -496,6 +783,7 @@ class ComprehensiveProcessor:
         
         Preserves existing data while adding new information.
         Empty/null values in new data won't override existing values.
+        Also preserves per-document extraction metadata for traceability.
         """
         # Start with existing master structure
         merged = existing_master.copy()
@@ -524,6 +812,25 @@ class ComprehensiveProcessor:
         source_doc = new_data.get("metadata", {}).get("source_document", "unknown")
         if source_doc not in merged["metadata"]["documents_processed"]:
             merged["metadata"]["documents_processed"].append(source_doc)
+        
+        # Preserve per-document extraction metadata (NEW)
+        if "document_extractions" not in merged["metadata"]:
+            merged["metadata"]["document_extractions"] = {}
+        
+        # Store this document's extraction metadata
+        doc_metadata = {
+            "extraction_method": new_data.get("metadata", {}).get("extraction_method", "unknown"),
+            "extraction_confidence": new_data.get("metadata", {}).get("extraction_confidence", 0.0),
+            "docai_metadata": new_data.get("metadata", {}).get("docai_metadata"),
+            "classification": new_data.get("metadata", {}).get("classification"),
+            "extraction_timestamp": new_data.get("metadata", {}).get("extraction_timestamp"),
+            "confidence_analysis": new_data.get("metadata", {}).get("confidence_analysis")
+        }
+        
+        # Remove None values to keep metadata clean
+        doc_metadata = {k: v for k, v in doc_metadata.items() if v is not None}
+        
+        merged["metadata"]["document_extractions"][source_doc] = doc_metadata
         
         return merged
     
