@@ -28,6 +28,17 @@ PROCESSING_CONFIG = {
     "retry_deadline": 300.0
 }
 
+# Batch processing configuration
+BATCH_CONFIG = {
+    "enabled": os.getenv("DOCAI_BATCH_ENABLED", "true").lower() == "true",
+    "threshold_mb": float(os.getenv("DOCAI_BATCH_THRESHOLD_MB", "2.0")),
+    "timeout_minutes": int(os.getenv("DOCAI_BATCH_TIMEOUT_MINUTES", "10")),
+    "temp_bucket_suffix": os.getenv("DOCAI_BATCH_BUCKET_SUFFIX", "docai-batch-temp"),
+    "cleanup_hours": int(os.getenv("DOCAI_BATCH_CLEANUP_HOURS", "24")),
+    "poll_interval_seconds": int(os.getenv("DOCAI_BATCH_POLL_INTERVAL", "10")),
+    "max_poll_interval_seconds": int(os.getenv("DOCAI_BATCH_MAX_POLL_INTERVAL", "60"))
+}
+
 # Document routing configuration for intelligent processing
 DOCUMENT_ROUTING = {
     "enable_smart_routing": os.getenv("ENABLE_SMART_ROUTING", "true").lower() == "true",
@@ -89,6 +100,34 @@ DOCAI_CONFIG: Dict[str, Any] = {
                 "email", "phone", "url", "date_time", "address",
                 "person", "organization", "quantity", "price", "id", "page_number"
             ]
+        },
+        "batch_processor": {
+            "id": os.getenv("DOCAI_FORM_PARSER_ID", "").strip(),  # Uses same processor as Form Parser
+            "type": "FORM_PARSER_BATCH",
+            "display_name": "Form Parser (Batch)",
+            "description": "Batch processing for large documents using Form Parser",
+            "capabilities": {
+                "text_extraction": True,
+                "key_value_extraction": True,
+                "table_extraction": True,
+                "entity_recognition": True,
+                "checkbox_detection": True,
+                "form_parsing": True,
+                "layout_analysis": True,
+                "async_processing": True
+            },
+            "supported_formats": [".pdf", ".tiff", ".png", ".jpg", ".jpeg"],
+            "max_file_size_mb": 200,  # Much higher limit for batch processing
+            "max_pages_batch": 200,   # Up to 200 pages in batch mode
+            "min_threshold_mb": 2.0,  # Minimum file size for batch processing
+            "best_for": ["large_documents", "multi_page_forms", "complex_layouts"],
+            "enabled": bool(os.getenv("DOCAI_FORM_PARSER_ID", "").strip() and 
+                          not os.getenv("DOCAI_FORM_PARSER_ID", "").strip().startswith('#') and
+                          BATCH_CONFIG["enabled"]),
+            "pricing_per_1000": 30.00,  # Same pricing as sync Form Parser
+            "confidence_threshold": 0.75,
+            "processing_time_estimate_minutes": "2-10",
+            "requires_gcs": True
         }
     },
     "mime_type_mapping": {
@@ -130,6 +169,28 @@ def get_processor_config(processor_type: str = "general_processor") -> Dict[str,
     """Get configuration for specific processor"""
     return DOCAI_CONFIG["processors"].get(processor_type, {})
 
+def get_batch_config() -> Dict[str, Any]:
+    """Get batch processing configuration"""
+    return BATCH_CONFIG
+
+def is_batch_processor_configured() -> bool:
+    """Check if batch processor is properly configured"""
+    # Batch processor uses same ID as Form Parser
+    if not is_form_parser_configured():
+        return False
+    
+    # Check if batch processing is enabled
+    if not BATCH_CONFIG["enabled"]:
+        return False
+    
+    # Verify required environment
+    try:
+        import google.cloud.storage
+        return True
+    except ImportError:
+        print(f"  ⚠️ WARNING: google-cloud-storage not available - batch processing disabled")
+        return False
+
 def is_general_processor_configured() -> bool:
     """Check if general processor is properly configured"""
     processor_id = os.getenv("DOCAI_GENERAL_PROCESSOR_ID", "").strip()
@@ -146,6 +207,12 @@ def is_general_processor_configured() -> bool:
     config = get_processor_config("general_processor")
     return bool(PROJECT_ID and config.get("enabled"))
 
+def get_temp_bucket_name() -> str:
+    """Get the temporary bucket name for batch processing"""
+    project_id = DOCAI_CONFIG["project_id"]
+    suffix = BATCH_CONFIG["temp_bucket_suffix"]
+    return f"{project_id}-{suffix}"
+
 def is_form_parser_configured() -> bool:
     """Check if form parser is properly configured"""
     processor_id = os.getenv("DOCAI_FORM_PARSER_ID", "").strip()
@@ -161,6 +228,17 @@ def is_form_parser_configured() -> bool:
     
     config = get_processor_config("form_parser")
     return bool(PROJECT_ID and config.get("enabled"))
+
+def get_batch_threshold_mb() -> float:
+    """Get the current batch processing threshold in MB"""
+    return BATCH_CONFIG["threshold_mb"]
+
+def should_use_batch_processing(file_size_mb: float) -> bool:
+    """Determine if a file should use batch processing based on size and configuration"""
+    if not is_batch_processor_configured():
+        return False
+    
+    return file_size_mb >= get_batch_threshold_mb()
 
 def get_mime_type(file_path: Path) -> str:
     """Get MIME type for a file based on extension"""

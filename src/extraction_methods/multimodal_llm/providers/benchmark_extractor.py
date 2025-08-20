@@ -28,11 +28,20 @@ from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid E
 from .rate_limiter import RateLimitHandler  # Rate limiting with exponential backoff
 from ..utils.document_classifier import DocumentClassifier, DocumentCategory  # Document classification
 
+# Import fusion components (conditional to avoid failures if not available)
+try:
+    from ....template_extraction.fusion import FusionManager
+    FUSION_AVAILABLE = True
+except ImportError:
+    FUSION_AVAILABLE = False
+    FusionManager = None
+
 # Import DocAI support (conditional to avoid failures if not configured)
 try:
     from ....config.docai_config import is_form_parser_configured, is_general_processor_configured
     from ...docai_form_parser import FormParserExtractor
     from ...docai_general_processor import GeneralProcessorExtractor
+    from ...docai_batch_processor import BatchDocumentProcessor
     DOCAI_AVAILABLE = True
 except ImportError as e:
     print(f"  ⚠️ DocAI imports failed: {e}")
@@ -117,6 +126,16 @@ class BenchmarkExtractor:
                 print(f"  ⚠️ Could not initialize Form Parser: {e}")
                 self.form_parser = None
         
+        # Initialize Batch Processor for large documents (if Form Parser is available)
+        self.batch_processor = None
+        if self.form_parser and DOCAI_AVAILABLE:
+            try:
+                self.batch_processor = BatchDocumentProcessor()
+                print("  ✅ Google Document AI Batch Processor initialized (large documents)")
+            except Exception as e:
+                print(f"  ⚠️ Could not initialize Batch Processor: {e}")
+                self.batch_processor = None
+        
         # Fallback to General Processor if Form Parser not available
         self.general_processor = None
         if not self.form_parser and DOCAI_AVAILABLE and is_general_processor_configured():
@@ -134,6 +153,35 @@ class BenchmarkExtractor:
         # Initialize document classifier for intelligent routing
         self.classifier = DocumentClassifier()
         print("  ✅ Document classifier initialized")
+        
+        # Initialize fusion manager if available (for multimodal fusion)
+        self.fusion_manager = None
+        
+        if FUSION_AVAILABLE:
+            try:
+                # Import fusion config
+                from ....template_extraction.fusion.fusion_config import get_fusion_config
+                
+                # Get fusion configuration
+                fusion_cfg = get_fusion_config()
+                self.enable_fusion = fusion_cfg.get('enable_fusion', False)
+                
+                if self.enable_fusion:
+                    # Initialize fusion manager with configuration
+                    self.fusion_manager = FusionManager(config=fusion_cfg.to_dict())
+                    print("  ✅ Fusion manager initialized (projection-based multimodal fusion enabled)")
+                    
+                    # Print key settings if diagnostics enabled
+                    if fusion_cfg.get('enable_diagnostics'):
+                        print(f"     • Mode: {fusion_cfg.get('fusion_mode')}")
+                        print(f"     • Attention heads: {fusion_cfg.get('num_attention_heads')}")
+                        print(f"     • Embedding dim: {fusion_cfg.get('embedding_dim')}")
+            except Exception as e:
+                print(f"  ⚠️ Could not initialize fusion manager: {e}")
+                self.fusion_manager = None
+                self.enable_fusion = False
+        else:
+            self.enable_fusion = False
     
     @property
     def client(self):
@@ -235,6 +283,7 @@ class BenchmarkExtractor:
             # Debug: Check DocAI availability
             print(f"\n🔍 DEBUG: DocAI Status")
             print(f"  • Form Parser available: {self.form_parser is not None}")
+            print(f"  • Batch Processor available: {self.batch_processor is not None}")
             print(f"  • General Processor available: {self.general_processor is not None}")
             
             # Try DocAI first if available (prefer Form Parser over General Processor)
@@ -300,12 +349,39 @@ class BenchmarkExtractor:
                     print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
                     try:
-                        # Process with DocAI (Form Parser or General Processor) with rate limiting
-                        docai_result = await self.rate_limiter.execute_with_backoff(
-                            docai_processor.extract,
-                            file_path,
-                            api_type="docai"
-                        )
+                        # NEW: Check if file is large enough for batch processing
+                        if file_size >= 2.0 and self.batch_processor:
+                            print(f"     🔄 Large file detected - attempting batch processing")
+                            docai_result = await self.rate_limiter.execute_with_backoff(
+                                self.batch_processor.process_large_document,
+                                file_path,
+                                2.0,  # 2MB threshold
+                                api_type="docai"
+                            )
+                            
+                            # If batch processing fails, fall back to sync processing
+                            if not docai_result.get("success"):
+                                print(f"     ⚠️ Batch processing failed: {docai_result.get('error')}")
+                                print(f"     🔄 Falling back to sync processing...")
+                                # Try sync processing if file is small enough
+                                if file_size <= 1.5:  # Form Parser sync limit
+                                    docai_result = await self.rate_limiter.execute_with_backoff(
+                                        docai_processor.extract,
+                                        file_path,
+                                        api_type="docai"
+                                    )
+                                else:
+                                    # File too large for sync, will fall back to Claude Vision
+                                    print(f"     ⚠️ File too large for sync processing - will use Claude Vision")
+                                    failed_docai_files.append(file_path)
+                                    continue
+                        else:
+                            # Process with DocAI (Form Parser or General Processor) with rate limiting
+                            docai_result = await self.rate_limiter.execute_with_backoff(
+                                docai_processor.extract,
+                                file_path,
+                                api_type="docai"
+                            )
                         
                         if docai_result.get("success"):
                             docai_results[str(file_path)] = docai_result
@@ -374,12 +450,31 @@ class BenchmarkExtractor:
                                 # Process with image extraction
                                 file_result = await self._extract_from_images(processed.images)
                             
+                            # Try fusion if we have both DocAI and Vision results
+                            if self.fusion_manager and file_result:
+                                docai_result = docai_results.get(str(file_path))
+                                if docai_result:
+                                    # We have both modalities - perform fusion
+                                    print(f"  🔀 Performing multimodal fusion for {Path(file_path).name}")
+                                    fused_result = await self.fusion_manager.fuse_multimodal(
+                                        docai_result=docai_result,
+                                        vision_result=file_result,
+                                        document_path=Path(file_path),
+                                        return_diagnostics=False
+                                    )
+                                    
+                                    # Use fused result instead of vision-only result
+                                    if fused_result and fused_result.get('fusion_metadata'):
+                                        fusion_quality = fused_result['fusion_metadata'].get('fusion_quality', 0)
+                                        print(f"     ✅ Fusion complete (quality: {fusion_quality:.2f})")
+                                        file_result = fused_result
+                            
                             # Store result with proper file path key
                             if file_result:
                                 all_results[str(file_path)] = file_result
-                                print(f"  ✅ Claude Vision extraction completed for {Path(file_path).name}")
+                                print(f"  ✅ Extraction completed for {Path(file_path).name}")
                             else:
-                                print(f"  ⚠️ No result from Claude Vision for {Path(file_path).name}")
+                                print(f"  ⚠️ No result for {Path(file_path).name}")
                         
                         # Collect images for summary if needed
                         all_images.extend(processed.images)
