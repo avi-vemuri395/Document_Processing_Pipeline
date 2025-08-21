@@ -19,12 +19,6 @@ from datetime import datetime
 # Import the CORRECT implementation
 from src.template_extraction.pipeline_orchestrator import PipelineOrchestrator
 
-# The old wrong implementation (kept for comparison)
-try:
-    from src.template_extraction.multi_template_processor_WRONG import MultiTemplateProcessor
-except ImportError:
-    MultiTemplateProcessor = None
-
 
 def print_section(title: str):
     """Print formatted section header"""
@@ -140,42 +134,6 @@ def test_correct_part2_form_mapping(application_id: str):
     print(f"    PDFs generated: {total_pdfs}")
     print(f"    JSON mappings: {total_forms}")
 
-
-def test_incremental_document_addition(application_id: str):
-    """Test adding a document incrementally"""
-    
-    print_section("INCREMENTAL DOCUMENT ADDITION")
-    
-    processor = MultiTemplateProcessor()
-    
-    # Add Wells Fargo template as a new document
-    new_doc = Path("templates/form_specs/wells_fargo_loan_app_v1.json")
-    
-    if new_doc.exists():
-        print(f"\nAdding new document: {new_doc.name}")
-        
-        result = processor.process_document_all_templates(
-            document_path=new_doc,
-            application_id=application_id
-        )
-        
-        print(f"  Document ID: {result['document_id']}")
-        print(f"  Templates Applied: {len(result['metadata']['templates_applied'])}")
-        
-        # Re-run Part 2 to update forms with new data
-        print("\n  Re-mapping forms with updated data...")
-        processor.map_to_bank_forms(application_id, "wells_fargo")
-        
-        # Show updated state
-        state_file = Path(f"outputs/applications/{application_id}/part1_document_processing/state/current.json")
-        if state_file.exists():
-            with open(state_file, 'r') as f:
-                state = json.load(f)
-                
-            print(f"\n  Updated State:")
-            print(f"    Total Documents: {state['documents_processed']}")
-            print(f"    Fields Extracted: {state['field_coverage']['fields_extracted']}")
-            print(f"    Coverage: {state['field_coverage']['coverage_percentage']:.1f}%")
 
 
 def test_conflict_analysis(application_id: str):

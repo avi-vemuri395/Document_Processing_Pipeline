@@ -4,18 +4,16 @@ Maps master data from Part 1 to 9 different bank forms
 """
 
 import json
-import statistics
 import os
-import asyncio
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 from ..extraction_methods.multimodal_llm.providers import (
-    LLMFormFiller,
     PDFFormGenerator,
     DynamicFormMapper
 )
+from .critical_field_validator import CriticalFieldValidator
 
 # Safe import of schema-driven components
 try:
@@ -24,6 +22,14 @@ try:
 except ImportError as e:
     print(f"⚠️ Schema-driven mapping not available: {e}")
     SCHEMA_DRIVEN_AVAILABLE = False
+
+# Safe import of visual form mapping components
+try:
+    from .visual_form_filler import VisualFormFiller
+    VISUAL_MAPPING_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Visual form mapping not available: {e}")
+    VISUAL_MAPPING_AVAILABLE = False
 
 
 class FormMappingService:
@@ -67,6 +73,7 @@ class FormMappingService:
         self.pdf_generator = PDFFormGenerator()
         self.output_base = Path("outputs/applications")
         self._confidence_aggregator = None  # Lazy initialization for confidence aggregator
+        self._critical_field_validator = None  # Lazy initialization for critical field validator
     
     @property
     def confidence_aggregator(self):
@@ -131,6 +138,23 @@ class FormMappingService:
             self._confidence_aggregator = EmbeddedConfidenceAggregator()
         return self._confidence_aggregator
     
+    @property
+    def critical_field_validator(self):
+        """Lazy load the critical field validator to avoid blocking during import."""
+        if self._critical_field_validator is None:
+            self._critical_field_validator = CriticalFieldValidator()
+        return self._critical_field_validator
+    
+    @property
+    def visual_form_filler(self):
+        """Lazy load the visual form filler to avoid blocking during import."""
+        if not hasattr(self, '_visual_form_filler'):
+            if VISUAL_MAPPING_AVAILABLE:
+                self._visual_form_filler = VisualFormFiller()
+            else:
+                self._visual_form_filler = None
+        return self._visual_form_filler
+    
     async def map_all_forms(self, application_id: str) -> Dict[str, Any]:
         """
         Map master data to all 9 forms across 3 banks.
@@ -182,6 +206,61 @@ class FormMappingService:
         self._save_mapping_summary(application_id, results)
         
         return results
+    
+    async def map_single_form(
+        self,
+        master_data: Dict[str, Any],
+        form_key: str,
+        application_id: str
+    ) -> Dict[str, Any]:
+        """
+        Map master data to a single form.
+        
+        This is a convenience method for testing individual form mappings.
+        
+        Args:
+            master_data: The comprehensive extraction from Part 1
+            form_key: Form identifier like "live_oak_application" or "huntington_business_app"
+            application_id: Unique application identifier
+            
+        Returns:
+            Dictionary of mapped form fields
+        """
+        # Parse the form key to determine bank and form type
+        bank_name = None
+        form_type = None
+        
+        # Check each bank's forms to find a match
+        for bank, forms in self.BANK_FORMS.items():
+            for f_type, spec_file in forms.items():
+                # Build the expected form key pattern
+                test_key = f"{bank}_{f_type}"
+                if form_key == test_key:
+                    bank_name = bank
+                    form_type = f_type
+                    break
+            if bank_name:
+                break
+        
+        if not bank_name or not form_type:
+            raise ValueError(f"Unknown form key: {form_key}")
+        
+        # Get the form specification
+        spec_file = self.BANK_FORMS[bank_name][form_type]
+        spec_key = spec_file.replace('.json', '')
+        form_spec = self._get_form_specification(bank_name, spec_file, spec_key)
+        
+        if not form_spec:
+            raise ValueError(f"Form specification not found for {form_key}")
+        
+        # Map the data using OpenAI semantic understanding
+        mapping_result = await self._map_fields_to_form(
+            master_data,
+            form_spec,
+            spec_key
+        )
+        
+        return mapping_result['mapped_data']
     
     async def map_bank_forms(
         self, 
@@ -254,9 +333,8 @@ class FormMappingService:
                 field_count = len(form_spec.get('fields', []))
                 print(f"      ✅ Using spec with {field_count} fields")
             
-            # Map master data to form fields with confidence scoring
-            # NEW: Schema-driven mapping with automatic fallback protection
-            mapping_result = await self._schema_driven_mapping_with_fallback(
+            # Map master data to form fields using OpenAI semantic understanding
+            mapping_result = await self._map_fields_to_form(
                 master_data,
                 form_spec,
                 spec_key  # e.g., "live_oak_application_v1"
@@ -271,9 +349,37 @@ class FormMappingService:
             filled_fields = len([v for v in mapped_data.values() if v])
             coverage = (filled_fields / total_fields * 100) if total_fields > 0 else 0
             
+            # Validate critical fields and form quality (Phase 3)
+            print(f"      🎯 Validating critical fields for {bank_name} {form_type}...")
+            try:
+                critical_validation = self.critical_field_validator.validate_form_mapping(
+                    bank=bank_name,
+                    form_type=form_type,
+                    mapped_data=mapped_data,
+                    form_spec=form_spec
+                )
+                
+                print(f"        • Critical fields: {critical_validation['critical_fields_status']['critical_present']}/{critical_validation['critical_fields_status']['critical_total']}")
+                print(f"        • Quality gate: {'✅ PASSED' if critical_validation['quality_gate_passed'] else '❌ FAILED'}")
+                
+            except Exception as e:
+                print(f"        ⚠️ Critical field validation failed: {e}")
+                critical_validation = {
+                    "error": str(e),
+                    "quality_gate_passed": False,
+                    "critical_fields_status": {"all_critical_present": False}
+                }
+            
             # Save mapped data
             output_dir = self.output_base / application_id / "part2_form_mapping" / "banks" / bank_name
             output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Enhanced needs_review logic including critical field validation
+            needs_review = (
+                overall_confidence < 0.85 or 
+                not critical_validation.get('quality_gate_passed', False) or
+                not critical_validation.get('critical_fields_status', {}).get('all_critical_present', False)
+            )
             
             mapped_path = output_dir / f"{form_type}_mapped.json"
             with open(mapped_path, 'w') as f:
@@ -285,8 +391,9 @@ class FormMappingService:
                     "confidence": {
                         "overall": overall_confidence,
                         "field_scores": confidence_scores,
-                        "needs_review": overall_confidence < 0.85
+                        "needs_review": needs_review
                     },
+                    "critical_field_validation": critical_validation,
                     "timestamp": datetime.now().isoformat()
                 }, f, indent=2)
             
@@ -308,7 +415,10 @@ class FormMappingService:
                 "total_fields": total_fields,
                 "coverage": round(coverage, 1),
                 "confidence": round(overall_confidence, 3),
-                "needs_review": overall_confidence < 0.85,
+                "needs_review": needs_review,
+                "quality_gate_passed": critical_validation.get('quality_gate_passed', False),
+                "critical_fields_present": critical_validation.get('critical_fields_status', {}).get('critical_present', 0),
+                "critical_fields_total": critical_validation.get('critical_fields_status', {}).get('critical_total', 0),
                 "mapped_data_path": str(mapped_path),
                 "pdf_path": str(pdf_path) if pdf_path else None
             }
@@ -318,281 +428,19 @@ class FormMappingService:
         
         return bank_results
     
-    def _intelligent_field_mapping_with_confidence(
-        self,
-        master_data: Dict[str, Any],
-        form_spec: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Map fields with confidence scoring (Phase 1 enhancement)."""
-        mapped_data = {}
-        confidence_scores = {}
-        
-        flat_master = self._deep_flatten(master_data)
-        
-        print(f"        🗂️  DEBUG: Flattened master data contains {len(flat_master)} keys")
-        if len(flat_master) > 0:
-            sample_keys = list(flat_master.keys())[:10]
-            print(f"        📋 Sample flattened keys: {sample_keys}")
-            if len(flat_master) > 10:
-                print(f"        📋 ... and {len(flat_master) - 10} more keys")
-        
-        form_fields = form_spec.get('fields', [])
-        print(f"        🎯 Form expects {len(form_fields)} fields")
-        
-        matched_count = 0
-        total_fields = len(form_fields)
-        
-        for field in form_spec.get('fields', []):
-            # Handle both 'name' and 'field_name' properties for compatibility with all form specs
-            field_name = field.get('name') or field.get('field_name', '')
-            field_id = field.get('id', field_name)
-            
-            if not field_name:
-                continue
-            
-            # Find value with confidence scoring
-            value, confidence = self._find_field_with_confidence(field_name, field_id, flat_master)
-            
-            if value and not isinstance(value, (dict, list)):
-                mapped_data[field_id] = value
-                confidence_scores[field_id] = confidence
-                matched_count += 1
-                print(f"          ✅ MATCHED '{field_name}' → '{value}' (confidence: {confidence:.2f})")
-            else:
-                print(f"          ❌ NO MATCH for '{field_name}' (id: '{field_id}')")
-        
-        print(f"        📊 Field mapping summary: {matched_count}/{total_fields} fields matched")
-        
-        # Calculate overall confidence
-        overall_confidence = statistics.mean(confidence_scores.values()) if confidence_scores else 0.0
-        
-        # Get review recommendation using embedded confidence aggregator
-        review_rec = self.confidence_aggregator.get_review_recommendation(
-            overall_confidence,
-            confidence_scores,
-            {}
-        )
-        
-        return {
-            'mapped_data': mapped_data,
-            'confidence_scores': confidence_scores,
-            'overall_confidence': overall_confidence,
-            'review_recommendation': review_rec
-        }
     
-    def _intelligent_field_mapping(
-        self,
-        master_data: Dict[str, Any],
-        form_spec: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Map fields from master data to form specification.
-        
-        This uses intelligent matching to handle field name variations
-        between the master data and different bank forms.
-        
-        Args:
-            master_data: Comprehensive extraction from Part 1
-            form_spec: Form specification with field requirements
-            
-        Returns:
-            Dictionary of form_field_name -> value
-        """
-        mapped_data = {}
-        
-        # Deep flatten master data to extract only leaf values
-        flat_master = self._deep_flatten(master_data)
-        
-        # Map each form field
-        for field in form_spec.get('fields', []):
-            # Handle both 'name' and 'field_name' properties for compatibility with all form specs
-            field_name = field.get('name') or field.get('field_name', '')
-            field_id = field.get('id', field_name)
-            
-            # Skip if no field name
-            if not field_name:
-                continue
-            
-            # Try direct match first
-            value = None
-            if field_id in flat_master:
-                value = flat_master[field_id]
-            elif field_id.lower() in flat_master:
-                value = flat_master[field_id.lower()]
-            elif field_name in flat_master:
-                value = flat_master[field_name]
-            elif field_name.lower() in flat_master:
-                value = flat_master[field_name.lower()]
-            else:
-                # Try intelligent matching based on common variations
-                value = self._find_field_match(field_id, flat_master)
-                if not value:
-                    value = self._find_field_match(field_name, flat_master)
-            
-            # Only add if value is not a dict or list (must be a leaf value)
-            if value and not isinstance(value, (dict, list)):
-                mapped_data[field_id] = value
-        
-        return mapped_data
     
-    def _deep_flatten(self, obj: Any, parent_key: str = '', separator: str = '.') -> Dict[str, Any]:
-        """
-        Recursively flatten nested dictionaries to extract only leaf values.
-        
-        Args:
-            obj: Object to flatten (dict, list, or primitive)
-            parent_key: Parent key path
-            separator: Separator for nested keys
-            
-        Returns:
-            Flattened dictionary with only leaf values
-        """
-        items = {}
-        
-        if isinstance(obj, dict):
-            for key, value in obj.items():
-                # Skip metadata and error fields
-                if key in ["metadata", "_metadata", "_extraction_failed", "raw_text", "error"]:
-                    continue
-                
-                new_key = f"{parent_key}{separator}{key}" if parent_key else key
-                
-                if isinstance(value, dict):
-                    # Recursively flatten nested dicts
-                    items.update(self._deep_flatten(value, new_key, separator))
-                elif isinstance(value, list):
-                    # Handle lists - extract first non-empty item if it's a primitive
-                    for i, item in enumerate(value):
-                        if item and not isinstance(item, (dict, list)):
-                            # Store first item without index for simple access
-                            if i == 0:
-                                items[new_key] = item
-                            # Also store with index for specific access
-                            items[f"{new_key}[{i}]"] = item
-                        elif isinstance(item, dict):
-                            # Flatten dict items in lists
-                            items.update(self._deep_flatten(item, f"{new_key}[{i}]", separator))
-                elif value is not None and value != "" and value != []:
-                    # This is a leaf value - add it with full path
-                    items[new_key] = value
-                    
-                    # For common fields, also add short version
-                    # This helps with field matching while avoiding too many duplicates
-                    common_fields = ['name', 'first', 'last', 'ssn', 'email', 'phone', 
-                                   'address', 'city', 'state', 'zip', 'ein', 'legal_name']
-                    if key.lower() in common_fields:
-                        items[key] = value
-        elif not isinstance(obj, list):
-            # It's a primitive value
-            if obj is not None and obj != "":
-                return {parent_key: obj} if parent_key else {}
-        
-        return items
-    
-    def _find_field_with_confidence(
-        self,
-        field_name: str,
-        field_id: str,
-        flat_master: Dict[str, Any]
-    ) -> Tuple[Any, float]:
-        """Find field value with confidence score."""
-        print(f"            🔍 Searching for field: '{field_name}' (id: '{field_id}')")
-        
-        # Direct exact match - highest confidence
-        if field_id in flat_master:
-            print(f"            ✅ Direct match on field_id: {field_id}")
-            return flat_master[field_id], 1.0
-        if field_id.lower() in flat_master:
-            print(f"            ✅ Case-insensitive match on field_id: {field_id.lower()}")
-            return flat_master[field_id.lower()], 0.95
-        if field_name in flat_master:
-            print(f"            ✅ Direct match on field_name: {field_name}")
-            return flat_master[field_name], 0.95
-        if field_name.lower() in flat_master:
-            print(f"            ✅ Case-insensitive match on field_name: {field_name.lower()}")
-            return flat_master[field_name.lower()], 0.9
-        
-        # Try intelligent matching with lower confidence
-        print(f"            🧠 Trying intelligent matching for field_id...")
-        value = self._find_field_match(field_id, flat_master)
-        if value:
-            print(f"            ✅ Intelligent match on field_id found: {value}")
-            return value, 0.8
-        
-        print(f"            🧠 Trying intelligent matching for field_name...")
-        value = self._find_field_match(field_name, flat_master)
-        if value:
-            print(f"            ✅ Intelligent match on field_name found: {value}")
-            return value, 0.75
-        
-        print(f"            ❌ No match found for '{field_name}'")
-        # No match found
-        return None, 0.0
-    
-    def _find_field_match(
-        self, 
-        form_field: str, 
-        master_data: Dict[str, Any]
-    ) -> Any:
-        """
-        Find matching field in master data using common variations.
-        
-        Args:
-            form_field: Field name from form specification
-            master_data: Flattened master data
-            
-        Returns:
-            Matched value or None
-        """
-        # Common field name variations
-        variations = {
-            'ssn': ['social_security_number', 'social_security', 'ss_number', 'taxpayer_id'],
-            'ein': ['employer_id', 'tax_id', 'business_tax_id', 'federal_tax_id'],
-            'business_name': ['company_name', 'company', 'business', 'dba'],
-            'phone': ['phone_number', 'telephone', 'contact_number', 'primary_phone'],
-            'email': ['email_address', 'contact_email', 'primary_email'],
-            'address': ['street_address', 'mailing_address', 'physical_address'],
-            'city': ['city_name', 'municipality'],
-            'state': ['state_code', 'province'],
-            'zip': ['zip_code', 'postal_code', 'zipcode'],
-            'dob': ['date_of_birth', 'birth_date', 'birthdate'],
-            'net_worth': ['total_net_worth', 'networth', 'net_value'],
-            'total_assets': ['assets', 'total_asset_value', 'asset_total'],
-            'total_liabilities': ['liabilities', 'total_liability_value', 'liability_total']
-        }
-        
-        form_field_lower = form_field.lower()
-        
-        # Check if form field matches any variation key
-        for key, variations_list in variations.items():
-            if key in form_field_lower:
-                # Try each variation
-                for variation in variations_list:
-                    if variation in master_data:
-                        return master_data[variation]
-                    if variation.lower() in master_data:
-                        return master_data[variation.lower()]
-        
-        # Check if any master data key contains the form field
-        for master_key, value in master_data.items():
-            if isinstance(master_key, str):
-                if form_field_lower in master_key.lower() or master_key.lower() in form_field_lower:
-                    return value
-        
-        return None
-    
-    async def _schema_driven_mapping_with_fallback(
+    async def _original_map_fields_to_form(
         self,
         master_data: Dict[str, Any],
         form_spec: Dict[str, Any],
         form_key: str
     ) -> Dict[str, Any]:
         """
-        Schema-driven mapping using OpenAI structured outputs with automatic fallback.
+        Map master data to form fields using OpenAI structured outputs (original method).
         
-        This method attempts to use AI semantic understanding to map master data
-        to form fields. If it fails for any reason, it automatically falls back
-        to the existing string-matching approach.
+        This method uses AI semantic understanding to intelligently map extracted data
+        to form fields, handling variations in field names and data formats.
         
         Args:
             master_data: Comprehensive extraction from Part 1
@@ -600,59 +448,121 @@ class FormMappingService:
             form_key: Key for OpenAI schema (e.g., 'live_oak_application_v1')
             
         Returns:
-            Same format as _intelligent_field_mapping_with_confidence()
+            Dictionary containing mapped data, confidence scores, and metadata
         """
-        # Check if schema-driven mapping is enabled and available
+        # Check if schema-driven mapping is available
         if not SCHEMA_DRIVEN_AVAILABLE:
-            print(f"        📝 Schema-driven not available, using existing method")
-            return self._intelligent_field_mapping_with_confidence(master_data, form_spec)
+            raise ImportError("OpenAI schema-driven mapping is required but not available. Please install openai package and configure OPENAI_API_KEY.")
         
-        enable_schema = os.getenv('ENABLE_SCHEMA_DRIVEN', 'false').lower() == 'true'
-        if not enable_schema:
-            print(f"        📝 Schema-driven disabled, using existing method")
-            return self._intelligent_field_mapping_with_confidence(master_data, form_spec)
+        print(f"        🤖 Mapping fields using OpenAI semantic understanding for {form_key}...")
         
-        print(f"        🤖 Attempting schema-driven mapping for {form_key}...")
+        # Initialize schema mapper if not exists (lazy loading)
+        if not hasattr(self, 'schema_mapper'):
+            print(f"        🔧 Initializing OpenAI schema mapper...")
+            self.schema_mapper = OpenAIFormMapper()
         
-        try:
-            # Initialize schema mapper if not exists (lazy loading)
-            if not hasattr(self, 'schema_mapper'):
-                print(f"        🔧 Initializing OpenAI schema mapper...")
-                self.schema_mapper = OpenAIFormMapper()
+        # Perform semantic mapping via OpenAI
+        mapped_data = await self.schema_mapper.map_to_form_schema(
+            master_data, 
+            form_key
+        )
+        
+        # Validate minimum coverage threshold  
+        if len(mapped_data) < 1:  # Require at least 1 field for success
+            raise Exception(f"No fields were successfully mapped from the available data")
+        
+        # Calculate metrics
+        total_fields = len(form_spec.get('fields', []))
+        filled_fields = len([v for v in mapped_data.values() if v is not None and str(v).strip()])
+        coverage = (filled_fields / total_fields * 100) if total_fields > 0 else 0
+        
+        # High confidence for schema-driven approach (AI understands semantics)
+        field_confidences = {k: 0.95 for k, v in mapped_data.items() if v is not None}
+        overall_confidence = 0.95 if coverage > 80 else (0.90 if coverage > 60 else 0.85)
+        
+        print(f"        ✅ OpenAI mapping success: {filled_fields}/{total_fields} fields ({coverage:.1f}%)")
+        
+        return {
+            'mapped_data': mapped_data,
+            'confidence_scores': field_confidences,
+            'overall_confidence': overall_confidence,
+            'extraction_method': 'openai_structured_outputs'
+        }
+    
+    async def _map_fields_to_form(
+        self,
+        master_data: Dict[str, Any],
+        form_spec: Dict[str, Any],
+        form_key: str
+    ) -> Dict[str, Any]:
+        """
+        Map master data to form fields using visual mapping or OpenAI fallback.
+        
+        This method tries visual mapping first (if enabled), then falls back
+        to OpenAI structured outputs for compatibility.
+        
+        Args:
+            master_data: Comprehensive extraction from Part 1
+            form_spec: Form specification with field requirements  
+            form_key: Key for OpenAI schema (e.g., 'live_oak_application_v1')
             
-            # Attempt semantic mapping via OpenAI
-            mapped_data = await self.schema_mapper.map_to_form_schema(
-                master_data, 
-                form_key
-            )
+        Returns:
+            Dictionary containing mapped data, confidence scores, and metadata
+        """
+        
+        # Check if visual mapping is enabled
+        if os.getenv('USE_VISUAL_FORM_MAPPING', 'false').lower() == 'true':
+            print(f"        🔍 Attempting visual form mapping for {form_key}...")
             
-            # Validate minimum coverage threshold  
-            if len(mapped_data) < 2:  # Require at least 2 fields for success
-                raise Exception(f"Insufficient field coverage: {len(mapped_data)} fields")
-            
-            # Calculate metrics in same format as existing method
-            total_fields = len(form_spec.get('fields', []))
-            filled_fields = len([v for k, v in mapped_data.items() if v is not None and str(v).strip()])
-            coverage = (filled_fields / total_fields * 100) if total_fields > 0 else 0
-            
-            # High confidence for schema-driven approach (AI understands semantics)
-            field_confidences = {k: 0.95 for k, v in mapped_data.items() if v is not None}
-            overall_confidence = 0.95 if coverage > 80 else (0.90 if coverage > 60 else 0.85)
-            
-            print(f"        ✅ Schema-driven success: {filled_fields}/{total_fields} fields ({coverage:.1f}%)")
-            
-            return {
-                'mapped_data': mapped_data,
-                'confidence_scores': field_confidences,
-                'overall_confidence': overall_confidence,
-                'extraction_method': 'openai_structured_outputs'
-            }
-            
-        except Exception as e:
-            print(f"        ⚠️ Schema-driven mapping failed: {e}")
-            print(f"        🔄 Falling back to existing string matching...")
-            # Complete fallback to existing method
-            return self._intelligent_field_mapping_with_confidence(master_data, form_spec)
+            if self.visual_form_filler is not None:
+                # Get PDF template path for this form
+                template_path = self._get_form_template_path(form_key)
+                
+                if template_path and template_path.exists():
+                    try:
+                        # Use visual mapping
+                        visual_result = await self.visual_form_filler.fill_form_visually(
+                            template_path,
+                            master_data,
+                            form_key
+                        )
+                        
+                        if visual_result.get('mapped_data') and not visual_result.get('error'):
+                            # Visual mapping succeeded
+                            print(f"        ✅ Visual mapping successful: {len(visual_result['mapped_data'])} fields")
+                            return visual_result
+                        else:
+                            print(f"        ⚠️ Visual mapping returned no fields, falling back...")
+                            
+                    except Exception as e:
+                        print(f"        ❌ Visual mapping failed: {e}, falling back...")
+                else:
+                    print(f"        ⚠️ No PDF template found for {form_key}, falling back...")
+            else:
+                print(f"        ⚠️ Visual form filler not available, falling back...")
+        
+        # Fallback to existing OpenAI method
+        print(f"        🤖 Using OpenAI semantic mapping for {form_key}...")
+        return await self._original_map_fields_to_form(master_data, form_spec, form_key)
+    
+    def _get_form_template_path(self, form_key: str) -> Optional[Path]:
+        """Get PDF template path for a form key."""
+        
+        # Map form keys to templates
+        template_mapping = {
+            'live_oak_application_v1': 'templates/Live Oak Express - Application Forms.pdf',
+            'live_oak_pfs_v1': 'templates/Live Oak Express - Application Forms.pdf',  # Same PDF
+            'live_oak_4506t_v1': 'templates/Live Oak Express - Application Forms.pdf',  # Same PDF
+            'huntington_business_app_v1': 'templates/Huntington Bank Personal Financial Statement.pdf',
+            'huntington_pfs_v1': 'templates/Huntington Bank Personal Financial Statement.pdf',
+            'huntington_tax_transcript_v1': 'templates/Huntington Bank Personal Financial Statement.pdf',
+            'huntington_debt_schedule_v1': 'templates/Huntington Bank Personal Financial Statement.pdf',
+        }
+        
+        template_file = template_mapping.get(form_key)
+        if template_file:
+            return Path(template_file)
+        return None
     
     def _generate_pdf(
         self,

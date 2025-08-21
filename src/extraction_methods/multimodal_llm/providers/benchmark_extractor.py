@@ -7,6 +7,7 @@ import os
 import json
 import time
 import asyncio
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional
 
@@ -27,6 +28,7 @@ from .files_client import FilesAPIClient  # TEST: Files API integration
 from ..extractors.hybrid_excel_extractor import HybridExcelExtractor  # Hybrid Excel extraction
 from .rate_limiter import RateLimitHandler  # Rate limiting with exponential backoff
 from ..utils.document_classifier import DocumentClassifier, DocumentCategory  # Document classification
+from .self_consistency_scorer import SelfConsistencyScorer  # Self-consistency confidence scoring
 
 # Import fusion components (conditional to avoid failures if not available)
 try:
@@ -38,15 +40,16 @@ except ImportError:
 
 # Import DocAI support (conditional to avoid failures if not configured)
 try:
-    from ....config.docai_config import is_form_parser_configured, is_general_processor_configured
+    from ....config.docai_config import is_form_parser_configured, is_general_processor_configured, get_batch_threshold_mb
     from ...docai_form_parser import FormParserExtractor
     from ...docai_general_processor import GeneralProcessorExtractor
     from ...docai_batch_processor import BatchDocumentProcessor
+    from ...pdf_chunker import PDFChunker
     DOCAI_AVAILABLE = True
 except ImportError as e:
     print(f"  ⚠️ DocAI imports failed: {e}")
     DOCAI_AVAILABLE = False
-    
+    PDFChunker = None
     def is_form_parser_configured():
         return False
     
@@ -154,6 +157,12 @@ class BenchmarkExtractor:
         self.classifier = DocumentClassifier()
         print("  ✅ Document classifier initialized")
         
+        # Initialize self-consistency scorer if enabled
+        self.enable_self_consistency = os.getenv("ENABLE_SELF_CONSISTENCY", "false").lower() == "true"
+        self._self_consistency_scorer = None  # Lazy initialization
+        if self.enable_self_consistency:
+            print("  ✅ Self-consistency scoring enabled")
+        
         # Initialize fusion manager if available (for multimodal fusion)
         self.fusion_manager = None
         
@@ -189,6 +198,17 @@ class BenchmarkExtractor:
         if self._client is None:
             self._client = AsyncAnthropic(api_key=self.api_key)
         return self._client
+    
+    @property
+    def self_consistency_scorer(self):
+        """Lazy initialization of SelfConsistencyScorer."""
+        if self.enable_self_consistency and self._self_consistency_scorer is None:
+            self._self_consistency_scorer = SelfConsistencyScorer(
+                client=self.client,
+                model=self.model,
+                rate_limiter=self.rate_limiter
+            )
+        return self._self_consistency_scorer
     
     async def extract_all(
         self, 
@@ -349,40 +369,89 @@ class BenchmarkExtractor:
                     print(f"\n  📄 Processing with DocAI: {file_path.name} ({file_size:.2f} MB)")
                     
                     try:
-                        # TODO: Batch processing temporarily disabled - investigating GCS permissions
                         # NEW: Check if file is large enough for batch processing
-                        # if file_size >= 2.0 and self.batch_processor:
-                        #     print(f"     🔄 Large file detected - attempting batch processing")
-                        #     docai_result = await self.rate_limiter.execute_with_backoff(
-                        #         self.batch_processor.process_large_document,
-                        #         file_path,
-                        #         2.0,  # 2MB threshold
-                        #         api_type="docai"
-                        #     )
-                        #     
-                        #     # If batch processing fails, fall back to sync processing
-                        #     if not docai_result.get("success"):
-                        #         print(f"     ⚠️ Batch processing failed: {docai_result.get('error')}")
-                        #         print(f"     🔄 Falling back to sync processing...")
-                        #         # Try sync processing if file is small enough
-                        #         if file_size <= 1.5:  # Form Parser sync limit
-                        #             docai_result = await self.rate_limiter.execute_with_backoff(
-                        #                 docai_processor.extract,
-                        #                 file_path,
-                        #                 api_type="docai"
-                        #             )
-                        #         else:
-                        #             # File too large for sync, will fall back to Claude Vision
-                        #             print(f"     ⚠️ File too large for sync processing - will use Claude Vision")
-                        #             failed_docai_files.append(file_path)
-                        #             continue
-                        # else:
-                        # Process with DocAI (Form Parser or General Processor) with rate limiting
-                        docai_result = await self.rate_limiter.execute_with_backoff(
-                            docai_processor.extract,
-                            file_path,
-                            api_type="docai"
-                        )
+                        batch_threshold = get_batch_threshold_mb()
+                        if file_size >= batch_threshold and self.batch_processor:
+                            print(f"     🔄 Large file detected - attempting batch processing (threshold: {batch_threshold}MB)")
+                            docai_result = await self.rate_limiter.execute_with_backoff(
+                                self.batch_processor.process_large_document,
+                                file_path,
+                                batch_threshold,  # Use configurable threshold
+                                api_type="docai"
+                            )
+                            
+                            # If batch processing fails, fall back to sync processing
+                            if not docai_result.get("success"):
+                                print(f"     ⚠️ Batch processing failed: {docai_result.get('error')}")
+                                print(f"     🔄 Falling back to sync processing...")
+                                # Try sync processing if file is small enough
+                                if file_size <= batch_threshold:  # Use same threshold for consistency
+                                    docai_result = await self.rate_limiter.execute_with_backoff(
+                                        docai_processor.extract,
+                                        file_path,
+                                        api_type="docai"
+                                    )
+                                else:
+                                    # File too large for sync, will fall back to Claude Vision
+                                    print(f"     ⚠️ File too large for sync processing - will use Claude Vision")
+                                    failed_docai_files.append(file_path)
+                                    continue
+                        else:
+                            # Check if PDF needs chunking (>15 pages)
+                            if DOCAI_AVAILABLE and PDFChunker and str(file_path).lower().endswith('.pdf'):
+                                chunker = PDFChunker(max_pages=15)
+                                
+                                if chunker.needs_chunking(file_path):
+                                    print(f"     📦 Document needs chunking (>{chunker.max_pages} pages)")
+                                    
+                                    # Process with chunking
+                                    chunk_results = []
+                                    
+                                    with tempfile.TemporaryDirectory() as temp_dir:
+                                        # Split PDF into chunks
+                                        chunks = chunker.split_pdf(file_path, temp_dir)
+                                        print(f"     📄 Processing {len(chunks)} chunks...")
+                                        
+                                        for chunk_info in chunks:
+                                            chunk_path = chunk_info["chunk_path"]
+                                            chunk_idx = chunk_info["chunk_index"]
+                                            total_chunks = chunk_info["total_chunks"]
+                                            
+                                            print(f"     🔄 Processing chunk {chunk_idx + 1}/{total_chunks}: pages {chunk_info['pages']}")
+                                            
+                                            # Process chunk with DocAI
+                                            chunk_result = await self.rate_limiter.execute_with_backoff(
+                                                docai_processor.extract,
+                                                chunk_path,
+                                                api_type="docai"
+                                            )
+                                            
+                                            if chunk_result.get("success"):
+                                                chunk_results.append(chunk_result)
+                                                print(f"       ✅ Chunk {chunk_idx + 1} processed successfully")
+                                            else:
+                                                print(f"       ⚠️ Chunk {chunk_idx + 1} failed")
+                                        
+                                        # Merge chunk results
+                                        if chunk_results:
+                                            docai_result = chunker.merge_chunk_results(chunk_results)
+                                            print(f"     ✅ Merged {len(chunk_results)} chunk results")
+                                        else:
+                                            docai_result = {"success": False, "error": "All chunks failed"}
+                                else:
+                                    # No chunking needed, process normally
+                                    docai_result = await self.rate_limiter.execute_with_backoff(
+                                        docai_processor.extract,
+                                        file_path,
+                                        api_type="docai"
+                                    )
+                            else:
+                                # Not a PDF or chunking not available, process normally
+                                docai_result = await self.rate_limiter.execute_with_backoff(
+                                    docai_processor.extract,
+                                    file_path,
+                                    api_type="docai"
+                                )
                         
                         if docai_result.get("success"):
                             docai_results[str(file_path)] = docai_result
@@ -917,19 +986,52 @@ Return ONLY valid JSON. Be extremely precise with numbers and business relations
                 }
             })
         
-        # Single API call
+        # API call - either self-consistency or single call
         try:
-            print(f"\n🚀 Making API call to {self.model}...")
             api_start = time.time()
+            confidence_data = {}
             
-            response = await self.rate_limiter.execute_with_backoff(
-                self.client.messages.create,
-                model=self.model,
-                max_tokens=8192,
-                temperature=0,
-                messages=[{"role": "user", "content": content}],
-                api_type="claude"
-            )
+            if self.enable_self_consistency:
+                print(f"\n🚀 Using self-consistency scoring...")
+                # Use self-consistency scorer
+                consistency_result = await self.self_consistency_scorer.extract_with_confidence(
+                    content=content,  # Pass the actual content, not wrapped in message format
+                    num_samples=3  # Configurable number of samples
+                )
+                
+                # Extract the best result and confidence data
+                response_data = consistency_result['extraction']
+                confidence_data = {
+                    'confidence_scores': consistency_result['confidence_scores'],
+                    'overall_confidence': consistency_result['overall_confidence'],
+                    'agreement_data': consistency_result['agreement_data'],
+                    'method': 'self_consistency'
+                }
+                
+                # Format as if it came from a single API response
+                class MockResponse:
+                    def __init__(self, text_content):
+                        self.content = [MockContent(text_content)]
+                        self.usage = None
+                
+                class MockContent:
+                    def __init__(self, text):
+                        self.text = json.dumps(text) if isinstance(text, dict) else str(text)
+                
+                text_content = response_data
+                response = MockResponse(text_content)
+                
+            else:
+                print(f"\n🚀 Making single API call to {self.model}...")
+                response = await self.rate_limiter.execute_with_backoff(
+                    self.client.messages.create,
+                    model=self.model,
+                    max_tokens=8192,
+                    temperature=0,
+                    messages=[{"role": "user", "content": content}],
+                    api_type="claude"
+                )
+                confidence_data = {'method': 'single_call'}
             
             api_time = time.time() - api_start
             print(f"✅ API response received in {api_time:.2f} seconds")
@@ -968,7 +1070,15 @@ Return ONLY valid JSON. Be extremely precise with numbers and business relations
                     if raw_text.startswith("json"):
                         raw_text = raw_text[4:].strip()
             
-            return json.loads(raw_text)
+            # Parse the JSON result
+            parsed_result = json.loads(raw_text)
+            
+            # Add confidence metadata if available
+            if confidence_data and isinstance(parsed_result, dict):
+                if '_confidence' not in parsed_result:
+                    parsed_result['_confidence'] = confidence_data
+                    
+            return parsed_result
             
         except json.JSONDecodeError as e:
             print(f"\n❌ JSON PARSING FAILED:")

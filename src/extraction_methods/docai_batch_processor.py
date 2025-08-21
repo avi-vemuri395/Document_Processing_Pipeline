@@ -193,6 +193,7 @@ class BatchDocumentProcessor:
             # Ensure bucket exists
             bucket = await self._get_or_create_temp_bucket()
             if not bucket:
+                print(f"  ❌❌❌ Failed to get or create temporary bucket")
                 return None
             
             # Generate unique filename

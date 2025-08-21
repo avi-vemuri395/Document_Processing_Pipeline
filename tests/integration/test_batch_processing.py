@@ -11,8 +11,8 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add project root to path for imports (FIXED: was pointing to tests/integration/src/ which doesn't exist)
+sys.path.insert(0, str(Path.cwd()))
 
 async def test_batch_processing():
     """Test batch processing with known large documents"""

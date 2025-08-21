@@ -26,6 +26,7 @@ class ComprehensiveProcessor:
         self._extractor = None  # Lazy initialization for extractor
         self._classifier = None  # Lazy initialization for classifier
         self._confidence_aggregator = None  # Lazy initialization for aggregator
+        self._financial_validator = None  # Lazy initialization for financial validator
         self.output_base = Path("outputs/applications")
     
     @property
@@ -56,24 +57,50 @@ class ComprehensiveProcessor:
             class EmbeddedConfidenceAggregator:
                 def __init__(self):
                     self.weights = {
-                        "classification": 0.2,
-                        "extraction": 0.5,
-                        "validation": 0.2,
-                        "consistency": 0.1
+                        "classification": 0.15,    # Reduced from 0.2
+                        "extraction": 0.35,       # Reduced from 0.5
+                        "business_rules": 0.25,   # NEW
+                        "self_consistency": 0.15, # NEW  
+                        "validation": 0.10        # Reduced from 0.2
                     }
                 
-                def calculate_document_confidence(self, classification_confidence, field_confidences, validation_scores):
-                    # Calculate weighted average
-                    classification_weight = 0.2
-                    extraction_weight = 0.5
+                def calculate_document_confidence(self, classification_confidence, field_confidences, 
+                                                validation_scores=None, business_rules_score=None, 
+                                                self_consistency_score=None):
+                    # Calculate weighted average with new components
+                    classification_weight = self.weights["classification"]
+                    extraction_weight = self.weights["extraction"]
+                    business_rules_weight = self.weights["business_rules"]
+                    self_consistency_weight = self.weights["self_consistency"]
+                    validation_weight = self.weights["validation"]
                     
                     extraction_confidence = statistics.mean(field_confidences) if field_confidences else 0.8
                     overall = (classification_confidence * classification_weight) + (extraction_confidence * extraction_weight)
                     
+                    # Add business rules validation if provided
+                    if business_rules_score is not None:
+                        overall += (business_rules_score * business_rules_weight)
+                    else:
+                        # Redistribute weight to extraction if no business rules
+                        overall = overall / (1 - business_rules_weight)
+                    
+                    # Add self-consistency if provided
+                    if self_consistency_score is not None:
+                        overall += (self_consistency_score * self_consistency_weight)
+                    else:
+                        # Redistribute weight if no self-consistency
+                        overall = overall / (1 - self_consistency_weight)
+                    
                     # Add validation if provided
                     if validation_scores:
                         validation_confidence = statistics.mean(validation_scores.values())
-                        overall = (overall * 0.8) + (validation_confidence * 0.2)
+                        overall += (validation_confidence * validation_weight)
+                    else:
+                        # Redistribute weight if no validation
+                        overall = overall / (1 - validation_weight)
+                    
+                    # Ensure overall confidence stays in 0-1 range
+                    overall = min(1.0, max(0.0, overall))
                     
                     breakdown = {
                         "overall": overall,
@@ -84,13 +111,23 @@ class ComprehensiveProcessor:
                             "max": max(field_confidences) if field_confidences else 0,
                             "count": len(field_confidences)
                         },
+                        "business_rules": business_rules_score,
+                        "self_consistency": self_consistency_score,
                         "validation": validation_scores or {},
-                        "status": "embedded_implementation"
+                        "status": "enhanced_embedded_implementation"
                     }
                     return overall, breakdown
             
             self._confidence_aggregator = EmbeddedConfidenceAggregator()
         return self._confidence_aggregator
+    
+    @property
+    def financial_validator(self):
+        """Lazy load the financial validator to avoid blocking during import."""
+        if self._financial_validator is None:
+            from .financial_validator import FinancialBusinessRulesValidator
+            self._financial_validator = FinancialBusinessRulesValidator()
+        return self._financial_validator
     
     async def process_document(
         self, 
@@ -141,6 +178,33 @@ class ComprehensiveProcessor:
             document_path.name,
             classification_result
         )
+        
+        # 4. Validate extracted data using business rules (Phase 2)
+        print("  🔍 Validating data with business rules...")
+        try:
+            validation_results = self.financial_validator.validate_extracted_data(structured_data)
+            business_rules_score = validation_results['overall_score']
+            
+            print(f"    • Business rules score: {business_rules_score:.1%}")
+            print(f"    • Rules passed: {len(validation_results['passed_rules'])}")
+            print(f"    • Rules failed: {len(validation_results['failed_rules'])}")
+            if validation_results['warnings']:
+                print(f"    • Warnings: {len(validation_results['warnings'])}")
+            
+            # Add validation results to metadata
+            structured_data["metadata"]["business_rules_validation"] = validation_results
+            
+            # Recalculate confidence with business rules score
+            if classification_result:
+                self._add_confidence_scores(structured_data, classification_result, business_rules_score)
+            
+        except Exception as e:
+            print(f"    ⚠️ Business rules validation failed: {e}")
+            business_rules_score = None
+            structured_data["metadata"]["business_rules_validation"] = {
+                "error": str(e),
+                "overall_score": 0.0
+            }
         
         # 4. Save individual extraction
         extraction_path = app_dir / "extractions" / f"{document_path.stem}_extraction.json"
@@ -405,9 +469,10 @@ class ComprehensiveProcessor:
             if "_metadata" in raw_data:
                 structured["metadata"]["extraction_metadata"] = raw_data["_metadata"]
         
-        # Phase 1: Calculate confidence scores for extracted data
+        # Phase 1: Calculate confidence scores for extracted data (updated for business rules)
         if classification_result:
-            self._add_confidence_scores(structured, classification_result)
+            # Note: business_rules_score will be None here, but will be updated after validation
+            self._add_confidence_scores(structured, classification_result, business_rules_score=None)
         
         return structured
     
@@ -512,9 +577,10 @@ class ComprehensiveProcessor:
     def _categorize_form_fields(self, form_fields: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         """
         Categorize DocAI form fields into personal, business, tax, and debt categories.
+        Preserves confidence scores when present in the value structure.
         
         Args:
-            form_fields: Dictionary of field_name -> value
+            form_fields: Dictionary of field_name -> value or {"value": ..., "confidence": ...}
             
         Returns:
             Tuple of (personal_fields, business_fields, tax_fields, debt_fields)
@@ -552,24 +618,34 @@ class ComprehensiveProcessor:
             'notes_payable', 'mo_payments', 'monthly_payment'
         }
         
-        for field_name, value in form_fields.items():
-            if not value or value == "":
-                continue
+        for field_name, field_data in form_fields.items():
+            # Handle both formats: simple value or {"value": ..., "confidence": ...}
+            if isinstance(field_data, dict) and "value" in field_data:
+                # DocAI format with confidence - check if value is empty
+                if not field_data.get("value") or field_data.get("value") == "":
+                    continue
+                # Preserve the full structure with confidence
+                value_to_store = field_data
+            else:
+                # Simple value format (backward compatibility)
+                if not field_data or field_data == "":
+                    continue
+                value_to_store = field_data
                 
             field_lower = field_name.lower()
             
             # Check patterns in priority order
             if any(pattern in field_lower for pattern in tax_patterns):
-                tax_fields[field_name] = value
+                tax_fields[field_name] = value_to_store
             elif any(pattern in field_lower for pattern in debt_patterns):
-                debt_fields[field_name] = value
+                debt_fields[field_name] = value_to_store
             elif any(pattern in field_lower for pattern in personal_patterns):
-                personal_fields[field_name] = value
+                personal_fields[field_name] = value_to_store
             elif any(pattern in field_lower for pattern in business_patterns):
-                business_fields[field_name] = value
+                business_fields[field_name] = value_to_store
             else:
                 # Default to business for unknown fields
-                business_fields[field_name] = value
+                business_fields[field_name] = value_to_store
         
         return personal_fields, business_fields, tax_fields, debt_fields
     
@@ -656,34 +732,106 @@ class ComprehensiveProcessor:
         
         return entity_data
     
-    def _add_confidence_scores(self, structured_data: Dict[str, Any], classification_result: Any):
-        """Add confidence scores to structured data (Phase 1) - RESTORED with embedded implementation."""
+    def _add_confidence_scores(self, structured_data: Dict[str, Any], classification_result: Any, business_rules_score: Optional[float] = None):
+        """Add confidence scores to structured data - uses real DocAI confidence when available."""
         # Count non-empty fields in each category
         field_counts = {}
         for category in ["personal_info", "business_info", "financial_data", "tax_data", "debt_schedules"]:
             if category in structured_data:
                 field_counts[category] = self._count_non_empty_fields(structured_data[category])
         
-        # Calculate overall extraction confidence
-        total_fields = sum(field_counts.values())
-        field_confidences = [0.9] * total_fields if total_fields > 0 else []  # Baseline confidence
+        # Extract real confidence scores from DocAI fields if available
+        field_confidences = self._extract_docai_confidence_scores(structured_data)
+        
+        # If no DocAI confidence scores found, use baseline
+        if not field_confidences:
+            total_fields = sum(field_counts.values())
+            field_confidences = [0.9] * total_fields if total_fields > 0 else []  # Baseline confidence
+            confidence_source = "baseline"
+        else:
+            confidence_source = "docai_extracted"
         
         # Use embedded confidence aggregator (bypasses problematic import)
         overall_confidence, breakdown = self.confidence_aggregator.calculate_document_confidence(
             classification_confidence=classification_result.confidence if classification_result else 0.0,
             field_confidences=field_confidences,
-            validation_scores={}
+            validation_scores={},
+            business_rules_score=business_rules_score
         )
         
         # Add confidence metadata
         structured_data["metadata"]["confidence_analysis"] = {
-            "status": "restored_with_embedded_implementation",
+            "status": "using_real_docai_confidence",
+            "confidence_source": confidence_source,
             "overall_confidence": overall_confidence,
             "classification_confidence": classification_result.confidence if classification_result else 0.0,
             "field_counts": field_counts,
-            "total_fields": total_fields,
+            "total_fields": sum(field_counts.values()),
+            "confidence_fields_extracted": len(field_confidences),
             "confidence_breakdown": breakdown
         }
+    
+    def _extract_docai_confidence_scores(self, structured_data: Dict[str, Any]) -> List[float]:
+        """
+        Extract real confidence scores from DocAI fields in structured data.
+        
+        Args:
+            structured_data: Structured data containing categorized fields
+            
+        Returns:
+            List of confidence scores from DocAI fields
+        """
+        confidence_scores = []
+        
+        # Look for DocAI fields in each category
+        for category in ["personal_info", "business_info", "tax_data", "debt_schedules"]:
+            if category not in structured_data:
+                continue
+                
+            category_data = structured_data[category]
+            
+            # Check for docai_personal, docai_business, docai_tax, docai_debt
+            docai_keys = [
+                "docai_personal", "docai_business", "docai_tax", "docai_debt"
+            ]
+            
+            for docai_key in docai_keys:
+                if docai_key in category_data:
+                    docai_fields = category_data[docai_key]
+                    
+                    # Extract confidence from each field
+                    for field_name, field_data in docai_fields.items():
+                        if isinstance(field_data, dict) and "confidence" in field_data:
+                            # This is a DocAI field with confidence
+                            confidence = field_data.get("confidence", 0.0)
+                            if confidence > 0:  # Only include non-zero confidence scores
+                                confidence_scores.append(confidence)
+        
+        # Also check financial_data for DocAI tables
+        if "financial_data" in structured_data:
+            financial_data = structured_data["financial_data"]
+            
+            # Check for docai_tables
+            if "docai_tables" in financial_data:
+                tables = financial_data["docai_tables"]
+                # Tables might have confidence in their structure
+                if isinstance(tables, dict):
+                    for table_id, table_data in tables.items():
+                        if isinstance(table_data, dict) and "is_financial" in table_data:
+                            # Use a high confidence for identified financial tables
+                            confidence_scores.append(0.95)
+        
+        # Also check for overall DocAI confidence in metadata
+        if "metadata" in structured_data:
+            metadata = structured_data["metadata"]
+            if "extraction_confidence" in metadata and metadata.get("extraction_method") == "google_document_ai":
+                # Add overall DocAI confidence as a baseline if we have it
+                overall_conf = metadata["extraction_confidence"]
+                if overall_conf > 0 and len(confidence_scores) == 0:
+                    # Use overall confidence as fallback if no field-level confidence
+                    confidence_scores.append(overall_conf)
+        
+        return confidence_scores
     
     def _count_non_empty_fields(self, data: Any, depth: int = 0) -> int:
         """Count non-empty fields in nested structure."""

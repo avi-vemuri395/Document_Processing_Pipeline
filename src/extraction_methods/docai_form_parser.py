@@ -289,41 +289,28 @@ class FormParserExtractor:
             # Configure process options with OCR settings
             process_options = None
             
-            # Check if imageless mode is enabled in configuration
+            # Configure OCR options - always enable native PDF parsing for better quality
+            ocr_config = documentai.OcrConfig(
+                enable_native_pdf_parsing=True
+            )
+            
+            # Create process options with OCR config
+            process_options = documentai.ProcessOptions(
+                ocr_config=ocr_config
+            )
+            
+            # Log imageless mode status
             if self.config.get("use_imageless_mode", False):
-                print("     • Configuring imageless mode (30-page limit if project is allowlisted)")
-                
-                # Create OCR config with advanced options for imageless mode
-                # Note: "enable_imageless" needs to be in advanced_ocr_options if supported
-                # This requires the project to be on Google's allowlist
-                ocr_config = documentai.OcrConfig(
-                    # Enable native PDF parsing for better quality
-                    enable_native_pdf_parsing=True,
-                    # Add imageless mode to advanced options
-                    advanced_ocr_options=["enable_imageless"]
-                )
-                
-                # Create process options with OCR config
-                process_options = documentai.ProcessOptions(
-                    ocr_config=ocr_config
-                )
-                print("     • Imageless mode configured - will attempt to process up to 30 pages")
-                print("     • Note: If not allowlisted, will fall back to 15-page limit")
+                print("     • Imageless mode enabled (30-page limit)")
             else:
                 print("     • Using standard mode (15-page limit)")
-                # Still enable native PDF parsing for better quality
-                ocr_config = documentai.OcrConfig(
-                    enable_native_pdf_parsing=True
-                )
-                process_options = documentai.ProcessOptions(
-                    ocr_config=ocr_config
-                )
             
-            # Create request with process options
+            # Create request with process options and imageless mode parameter
             request = documentai.ProcessRequest(
                 name=self.processor_name,
                 raw_document=raw_document,
-                process_options=process_options
+                process_options=process_options,
+                imageless_mode=self.config.get("use_imageless_mode", False)
             )
             
             print(f"     • Sending request to DocAI processor: {self.processor_name}")

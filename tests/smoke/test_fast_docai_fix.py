@@ -236,8 +236,8 @@ async def test_fast_docai():
     
     print(f"\n💾 TEST RESULTS SAVED:")
     print(f"   • Summary: {summary_path}")
-    print(f"   • Individual extractions: {output_base.parent / test_id / 'part1_document_processing' / 'extractions'}")
-    print(f"   • Master data: {output_base.parent / test_id / 'part1_document_processing' / 'master_data.json'}")
+    print(f"   • Individual extractions: outputs/applications/{test_id}/part1_document_processing/extractions")
+    print(f"   • Master data: outputs/applications/{test_id}/part1_document_processing/master_data.json")
     
     # Performance assessment
     if avg_categories >= 4:
@@ -257,7 +257,7 @@ async def test_fast_docai():
     print("="*70)
     
     # Load the master data
-    master_data_path = output_base.parent / test_id / "part1_document_processing" / "master_data.json"
+    master_data_path = Path("outputs/applications") / test_id / "part1_document_processing" / "master_data.json"
     if not master_data_path.exists():
         print(f"❌ Master data not found at {master_data_path}")
         return test_summary
@@ -285,7 +285,7 @@ async def test_fast_docai():
         print(f"\n   📄 Mapping to {form_key}...")
         try:
             # Map using schema-driven approach (if enabled)
-            mapped_data = await form_mapper._map_to_form(master_data, form_key, test_id)
+            mapped_data = await form_mapper.map_single_form(master_data, form_key, test_id)
             
             # Count mapped fields
             mapped_count = sum(1 for v in mapped_data.values() if v not in [None, "", [], {}])
