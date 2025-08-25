@@ -31,6 +31,14 @@ except ImportError as e:
     print(f"⚠️ Visual form mapping not available: {e}")
     VISUAL_MAPPING_AVAILABLE = False
 
+# Safe import of DocAI semantic mapping components (NEW - Phase 2)
+try:
+    from .docai_semantic_mapper import DocAISemanticMapper
+    SEMANTIC_MAPPING_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ DocAI semantic mapping not available: {e}")
+    SEMANTIC_MAPPING_AVAILABLE = False
+
 
 class FormMappingService:
     """
@@ -74,6 +82,7 @@ class FormMappingService:
         self.output_base = Path("outputs/applications")
         self._confidence_aggregator = None  # Lazy initialization for confidence aggregator
         self._critical_field_validator = None  # Lazy initialization for critical field validator
+        self._semantic_mapper = None  # Lazy initialization for DocAI semantic mapper (NEW)
     
     @property
     def confidence_aggregator(self):
@@ -154,6 +163,20 @@ class FormMappingService:
             else:
                 self._visual_form_filler = None
         return self._visual_form_filler
+    
+    @property
+    def semantic_mapper(self):
+        """Lazy load the DocAI semantic mapper (NEW - Priority 1 mapping approach)."""
+        if self._semantic_mapper is None:
+            if SEMANTIC_MAPPING_AVAILABLE:
+                # Only initialize if enabled via environment variable
+                if os.getenv('USE_DOCAI_SEMANTIC_MAPPING', 'true').lower() == 'true':
+                    self._semantic_mapper = DocAISemanticMapper()
+                else:
+                    self._semantic_mapper = None
+            else:
+                self._semantic_mapper = None
+        return self._semantic_mapper
     
     async def map_all_forms(self, application_id: str) -> Dict[str, Any]:
         """
@@ -496,21 +519,53 @@ class FormMappingService:
         form_key: str
     ) -> Dict[str, Any]:
         """
-        Map master data to form fields using visual mapping or OpenAI fallback.
+        Map master data to form fields using intelligent priority chain.
         
-        This method tries visual mapping first (if enabled), then falls back
-        to OpenAI structured outputs for compatibility.
+        NEW Priority Order (DocAI-First Architecture):
+        1. DocAI Semantic Mapping - Leverages structured DocAI extraction
+        2. Visual Form Mapping - Uses Claude Vision for form analysis
+        3. OpenAI Structured Outputs - Final fallback for compatibility
         
         Args:
             master_data: Comprehensive extraction from Part 1
             form_spec: Form specification with field requirements  
-            form_key: Key for OpenAI schema (e.g., 'live_oak_application_v1')
+            form_key: Key for form identification
             
         Returns:
             Dictionary containing mapped data, confidence scores, and metadata
         """
         
-        # Check if visual mapping is enabled
+        # PRIORITY 1: DocAI Semantic Mapping (NEW - Highest priority)
+        # Use intelligent semantic mapping for DocAI extracted fields
+        if self.semantic_mapper and self._has_docai_data(master_data):
+            print(f"        🧠 Attempting DocAI semantic mapping for {form_key}...")
+            try:
+                # Extract all DocAI fields from master data
+                docai_fields = self._extract_docai_fields(master_data)
+                
+                if docai_fields:
+                    print(f"        📊 Found {len(docai_fields)} DocAI fields to map")
+                    
+                    # Use semantic mapper to intelligently map fields
+                    semantic_result = await self.semantic_mapper.map_docai_to_form(
+                        docai_fields, form_spec, form_key
+                    )
+                    
+                    if semantic_result.get('mapped_data') and not semantic_result.get('error'):
+                        coverage = len(semantic_result['mapped_data'])
+                        total = len(form_spec.get('fields', []))
+                        print(f"        ✅ Semantic mapping successful: {coverage}/{total} fields")
+                        return semantic_result
+                    else:
+                        print(f"        ⚠️ Semantic mapping returned no fields, falling back...")
+                else:
+                    print(f"        ⚠️ No DocAI fields found in master data, falling back...")
+                    
+            except Exception as e:
+                print(f"        ❌ Semantic mapping failed: {e}, falling back...")
+        
+        # PRIORITY 2: Visual Form Mapping (Previous Priority 1)
+        # Use Claude Vision to analyze form images
         if os.getenv('USE_VISUAL_FORM_MAPPING', 'false').lower() == 'true':
             print(f"        🔍 Attempting visual form mapping for {form_key}...")
             
@@ -541,7 +596,7 @@ class FormMappingService:
             else:
                 print(f"        ⚠️ Visual form filler not available, falling back...")
         
-        # Fallback to existing OpenAI method
+        # PRIORITY 3: OpenAI Structured Outputs (Final fallback)
         print(f"        🤖 Using OpenAI semantic mapping for {form_key}...")
         return await self._original_map_fields_to_form(master_data, form_spec, form_key)
     
@@ -563,6 +618,88 @@ class FormMappingService:
         if template_file:
             return Path(template_file)
         return None
+    
+    def _has_docai_data(self, master_data: Dict[str, Any]) -> bool:
+        """
+        Check if master data contains DocAI extracted fields.
+        
+        DocAI fields are stored with keys like:
+        - docai_personal
+        - docai_business
+        - docai_tax
+        - docai_debt
+        
+        Args:
+            master_data: Master data from comprehensive extraction
+            
+        Returns:
+            True if DocAI data exists
+        """
+        # Check each category for DocAI prefixed subcategories
+        for category in ['personal_info', 'business_info', 'financial_data', 'tax_data', 'debt_schedules']:
+            if category in master_data:
+                category_data = master_data[category]
+                if isinstance(category_data, dict):
+                    # Check for any docai_ prefixed keys
+                    for key in category_data.keys():
+                        if key.startswith('docai_'):
+                            return True
+        return False
+    
+    def _extract_docai_fields(self, master_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract all DocAI fields from master data.
+        
+        Consolidates DocAI fields from all categories into a single dictionary
+        for semantic mapping. Preserves confidence scores when available.
+        
+        Args:
+            master_data: Master data from comprehensive extraction
+            
+        Returns:
+            Dictionary of all DocAI fields with their values and confidence scores
+        """
+        docai_fields = {}
+        
+        # Extract from each category
+        for category in ['personal_info', 'business_info', 'financial_data', 'tax_data', 'debt_schedules']:
+            if category not in master_data:
+                continue
+                
+            category_data = master_data[category]
+            if not isinstance(category_data, dict):
+                continue
+            
+            # Look for docai_ prefixed subcategories
+            for subcategory_key, subcategory_data in category_data.items():
+                if subcategory_key.startswith('docai_') and isinstance(subcategory_data, dict):
+                    # Add all fields from this DocAI subcategory
+                    for field_name, field_value in subcategory_data.items():
+                        # Preserve the structure if it has confidence
+                        if isinstance(field_value, dict) and 'value' in field_value:
+                            docai_fields[field_name] = field_value
+                        else:
+                            # Create structure with default confidence
+                            docai_fields[field_name] = {
+                                'value': field_value,
+                                'confidence': 0.8  # Default confidence for fields without explicit scores
+                            }
+        
+        # Also check for DocAI tables in financial_data
+        if 'financial_data' in master_data:
+            financial_data = master_data['financial_data']
+            if 'docai_tables' in financial_data:
+                # Add table data as structured fields
+                tables_data = financial_data['docai_tables']
+                if isinstance(tables_data, dict):
+                    for table_key, table_value in tables_data.items():
+                        # Add table entries as fields
+                        docai_fields[f"table_{table_key}"] = {
+                            'value': table_value,
+                            'confidence': 0.9  # Tables typically have high confidence
+                        }
+        
+        return docai_fields
     
     def _generate_pdf(
         self,

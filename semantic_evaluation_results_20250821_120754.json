@@ -1,0 +1,65 @@
+{
+  "test_app_id": "comprehensive_test_20250821_055835",
+  "docai_fields_count": 269,
+  "forms_tested": {
+    "live_oak_application_v1": {
+      "form_name": "Live Oak Application",
+      "with_semantic": {
+        "filled": 12,
+        "total": 20,
+        "coverage": 60.0,
+        "confidence": 0.7533333333333333,
+        "method": "docai_semantic_mapping"
+      },
+      "without_semantic": {
+        "filled": 0,
+        "total": 20,
+        "coverage": 0,
+        "confidence": 0,
+        "method": "error"
+      },
+      "improvement_percentage": 100
+    },
+    "huntington_business_app_v1": {
+      "form_name": "Huntington Business Application",
+      "with_semantic": {
+        "filled": 13,
+        "total": 20,
+        "coverage": 65.0,
+        "confidence": 0.8961538461538462,
+        "method": "docai_semantic_mapping"
+      },
+      "without_semantic": {
+        "filled": 0,
+        "total": 20,
+        "coverage": 0,
+        "confidence": 0,
+        "method": "error"
+      },
+      "improvement_percentage": 100
+    },
+    "wells_fargo_loan_app_v1": {
+      "form_name": "Wells Fargo Loan Application",
+      "with_semantic": {
+        "filled": 19,
+        "total": 42,
+        "coverage": 45.23809523809524,
+        "confidence": 0.8921052631578947,
+        "method": "docai_semantic_mapping"
+      },
+      "without_semantic": {
+        "filled": 0,
+        "total": 42,
+        "coverage": 0,
+        "confidence": 0,
+        "method": "error"
+      },
+      "improvement_percentage": 100
+    }
+  },
+  "averages": {
+    "improvement": 100.0,
+    "coverage_with": 56.74603174603175,
+    "coverage_without": 0.0
+  }
+}

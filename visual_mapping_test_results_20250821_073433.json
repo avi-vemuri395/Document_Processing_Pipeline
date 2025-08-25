@@ -1,0 +1,37 @@
+{
+  "test_timestamp": "2025-08-21T07:34:33.103184",
+  "test_app_id": "chunking_test",
+  "results": {
+    "live_oak_application": {
+      "form_key": "live_oak_application_v1",
+      "total_fields": 20,
+      "current": {
+        "mapped": 0,
+        "coverage": 0.0
+      },
+      "visual": {
+        "mapped": 9,
+        "coverage": 45.0
+      },
+      "improvement": 45.0
+    },
+    "huntington_business_app": {
+      "form_key": "huntington_business_app_v1",
+      "total_fields": 20,
+      "current": {
+        "mapped": 0,
+        "coverage": 0.0
+      },
+      "visual": {
+        "mapped": 10,
+        "coverage": 50.0
+      },
+      "improvement": 50.0
+    }
+  },
+  "summary": {
+    "total_forms_tested": 2,
+    "average_improvement": 47.5,
+    "total_improvement": 95.0
+  }
+}

@@ -315,53 +315,30 @@ class BenchmarkExtractor:
                 print(f"\n🤖 ATTEMPTING GOOGLE DOCUMENT AI PROCESSING")
                 print(f"  • Processor: {processor_type} ({pricing})")
                 
-                # Enhanced smart routing using document classifier
-                files_for_docai = []
-                for i, file_path in enumerate(other_files):
+                # NEW: DocAI-First Routing Strategy (Cost is not a factor)
+                # Route ALL documents to DocAI Form Parser first for maximum structured extraction
+                # Only fall back to Claude Vision if DocAI completely fails
+                files_for_docai = other_files.copy()  # Send everything to DocAI
+                
+                print(f"\n  📊 DocAI-First Processing Strategy Enabled")
+                print(f"     • Routing ALL {len(files_for_docai)} documents to DocAI Form Parser")
+                print(f"     • Cost optimization disabled - maximizing extraction quality")
+                print(f"     • Fallback to Claude Vision only on DocAI failure")
+                
+                # Still classify documents for metadata/logging purposes only
+                for i, file_path in enumerate(files_for_docai):
                     doc_type = document_types[i] if document_types and i < len(document_types) else None
                     file_path_obj = Path(file_path)
                     
-                    # Step 1: Classify document using multiple strategies
+                    # Classification for metadata only (not for routing decisions)
                     category, confidence = DocumentCategory.UNKNOWN, 0.0
                     
-                    # Try loan application type mapping first (highest confidence)
                     if doc_type:
                         category, confidence = self.classifier.map_loan_application_type(doc_type)
-                        print(f"\n  🏷️ Document type provided: {doc_type}")
+                        print(f"\n  🏷️ Document type: {doc_type} ({category.value})")
                     
-                    # If low confidence or unknown, try heuristic classification
-                    if confidence < 0.7:
-                        try:
-                            # Try to extract text for heuristic classification (quick and cheap)
-                            with open(file_path_obj, 'rb') as f:
-                                # Simple text extraction attempt (first 5KB for speed)
-                                sample = f.read(5000)
-                                text_sample = sample.decode('utf-8', errors='ignore')
-                                heuristic_category, heuristic_confidence = self.classifier.classify_from_text_heuristics(text_sample)
-                                
-                                if heuristic_confidence > confidence:
-                                    category = heuristic_category
-                                    confidence = heuristic_confidence
-                                    print(f"     🔍 Heuristic classification: {category.value} ({confidence:.0%})")
-                        except:
-                            pass  # Fall back to default routing if text extraction fails
-                    
-                    # Step 2: Route based on classification
-                    should_use_docai = self.classifier.should_use_docai(category, confidence)
-                    
-                    if not should_use_docai:
-                        # Skip DocAI for narrative/visual documents with high confidence
-                        print(f"\n  📝 {category.value.replace('_', ' ').title()} detected")
-                        print(f"     File: {file_path_obj.name}")
-                        print(f"     Confidence: {confidence:.0%}")
-                        print(f"     → Routing directly to Claude Vision (optimal for this type)")
-                        failed_docai_files.append(file_path)
-                    else:
-                        files_for_docai.append(file_path)
-                        print(f"\n  📊 {category.value.replace('_', ' ').title()} detected")
-                        print(f"     File: {file_path_obj.name}")
-                        print(f"     Confidence: {confidence:.0%}")
-                        print(f"     → Trying DocAI first for structured extraction")
+                    print(f"     File: {file_path_obj.name}")
+                    print(f"     → Processing with DocAI Form Parser ($30/1000 pages)")
                 
                 for file_path in files_for_docai:
                     file_path = Path(file_path)
